@@ -171,12 +171,14 @@ RETURN p.name AS patient, collect(d.name) AS drugs;
 // 3. Add ontology triples (shared rules)
 // 4. Project into n20s in-memory graph
 
-MATCH (p:Patient {name: 'Alice'})-[:PRESCRIBED]->(d:Drug)-[:HAS_TRIPLE]->(t:Triple)
-WITH collect({s: t.s, p: t.p, o: t.o}) AS drugTriples
-MATCH (ont:Triple:Ontology)
-WITH drugTriples + collect({s: ont.s, p: ont.p, o: ont.o}) AS allTriples
-UNWIND allTriples AS t
-WITH n20s.graph.project('alice_check', t.s, t.p, t.o) AS g
+CALL {
+  MATCH (:Patient {name: 'Alice'})-[:PRESCRIBED]->(:Drug)-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:Ontology)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+}
+WITH n20s.graph.project('alice_check', s, p, o) AS g
 RETURN g.graphName AS graph, g.tripleCount AS triples;
 
 // ── Demo 3: Run RDFS inference ───────────────────────────────

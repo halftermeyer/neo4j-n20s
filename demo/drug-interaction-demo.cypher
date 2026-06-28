@@ -211,15 +211,22 @@ RETURN row;
 
 // ── Demo 5: CYP enzyme conflicts ─────────────────────────────
 //
-// "Find drugs where one inhibits the enzyme that metabolizes the other"
+// "Find drugs where one inhibits an enzyme that another drug depends on"
+// Checks both metabolizedBy and activatedBy
 
 CALL n20s.graph.query('alice_check', '
   PREFIX pharma: <http://example.org/pharma#>
 
-  SELECT ?inhibitor ?enzyme ?affected WHERE {
+  SELECT ?inhibitor ?enzyme ?affected ?dependency WHERE {
     ?inhibitor pharma:inhibits ?enzyme .
-    ?affected pharma:metabolizedBy ?enzyme .
     ?enzyme a pharma:CytochromeP450 .
+    {
+      ?affected pharma:metabolizedBy ?enzyme .
+      BIND("metabolized by" AS ?dependency)
+    } UNION {
+      ?affected pharma:activatedBy ?enzyme .
+      BIND("activated by" AS ?dependency)
+    }
     FILTER(?inhibitor != ?affected)
   }
 ') YIELD row
@@ -228,6 +235,90 @@ RETURN row;
 // ── Demo 6: Cleanup ──────────────────────────────────────────
 
 CALL n20s.graph.drop('alice_check');
+
+
+// ══════════════════════════════════════════════════════════════
+// ── CHECK CAROL ──────────────────────────────────────────────
+//   Clopidogrel (activated by CYP2C19)
+//   + Omeprazole (inhibits CYP2C19)
+//   + Fluoxetine (inhibits CYP2C19)
+//   → Clopidogrel can't activate — DOUBLE enzyme inhibition!
+// ══════════════════════════════════════════════════════════════
+
+CALL {
+  MATCH (:Patient {name: 'Carol'})-[:PRESCRIBED]->(:Drug)-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:Ontology)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+}
+WITH n20s.graph.project('carol_check', s, p, o) AS g
+RETURN g.graphName AS graph, g.tripleCount AS triples;
+
+CALL n20s.graph.infer('carol_check', 'RDFS')
+YIELD triplesBefore, triplesAfter, newTriples
+RETURN triplesBefore, triplesAfter, newTriples;
+
+CALL n20s.graph.query('carol_check', '
+  PREFIX pharma: <http://example.org/pharma#>
+
+  SELECT ?inhibitor ?enzyme ?affected ?dependency WHERE {
+    ?inhibitor pharma:inhibits ?enzyme .
+    ?enzyme a pharma:CytochromeP450 .
+    {
+      ?affected pharma:metabolizedBy ?enzyme .
+      BIND("metabolized by" AS ?dependency)
+    } UNION {
+      ?affected pharma:activatedBy ?enzyme .
+      BIND("activated by" AS ?dependency)
+    }
+    FILTER(?inhibitor != ?affected)
+  }
+') YIELD row
+RETURN row;
+
+CALL n20s.graph.drop('carol_check');
+
+
+// ══════════════════════════════════════════════════════════════
+// ── CHECK DAVE ───────────────────────────────────────────────
+//   Warfarin (metabolized by CYP2C9) + Amiodarone (inhibits CYP2C9) → bleeding
+//   Simvastatin (metabolized by CYP3A4) + Amiodarone (inhibits CYP3A4) → muscle damage
+// ══════════════════════════════════════════════════════════════
+
+CALL {
+  MATCH (:Patient {name: 'Dave'})-[:PRESCRIBED]->(:Drug)-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:Ontology)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+}
+WITH n20s.graph.project('dave_check', s, p, o) AS g
+RETURN g.graphName AS graph, g.tripleCount AS triples;
+
+CALL n20s.graph.infer('dave_check', 'RDFS')
+YIELD triplesBefore, triplesAfter, newTriples
+RETURN triplesBefore, triplesAfter, newTriples;
+
+CALL n20s.graph.query('dave_check', '
+  PREFIX pharma: <http://example.org/pharma#>
+
+  SELECT ?inhibitor ?enzyme ?affected ?dependency WHERE {
+    ?inhibitor pharma:inhibits ?enzyme .
+    ?enzyme a pharma:CytochromeP450 .
+    {
+      ?affected pharma:metabolizedBy ?enzyme .
+      BIND("metabolized by" AS ?dependency)
+    } UNION {
+      ?affected pharma:activatedBy ?enzyme .
+      BIND("activated by" AS ?dependency)
+    }
+    FILTER(?inhibitor != ?affected)
+  }
+') YIELD row
+RETURN row;
+
+CALL n20s.graph.drop('dave_check');
 
 // ══════════════════════════════════════════════════════════════
 // ── Now try other patients! ──────────────────────────────────

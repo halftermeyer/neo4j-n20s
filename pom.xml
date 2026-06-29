@@ -42,6 +42,10 @@
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -54,6 +58,10 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -77,21 +85,114 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.6.1</version>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
                 <executions>
                     <execution>
-                        <id>copy-dependencies</id>
                         <phase>package</phase>
-                        <goals><goal>copy-dependencies</goal></goals>
+                        <goals><goal>shade</goal></goals>
                         <configuration>
-                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                            <includeScope>runtime</includeScope>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <relocations>
+                                <!-- Jena core packages -->
+                                <relocation>
+                                    <pattern>org.apache.jena</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.jena</shadedPattern>
+                                </relocation>
+                                <!-- Commons (conflict with Neo4j) -->
+                                <relocation>
+                                    <pattern>org.apache.commons.collections4</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.commons.collections4</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.lang3</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.commons.lang3</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.csv</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.commons.csv</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.cli</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.commons.cli</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.io</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.commons.io</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.compress</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.commons.compress</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.codec</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.commons.codec</shadedPattern>
+                                </relocation>
+                                <!-- HTTP (conflict with Neo4j) -->
+                                <relocation>
+                                    <pattern>org.apache.http</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.http</shadedPattern>
+                                </relocation>
+                                <!-- Thrift -->
+                                <relocation>
+                                    <pattern>org.apache.thrift</pattern>
+                                    <shadedPattern>n20s.shaded.org.apache.thrift</shadedPattern>
+                                </relocation>
+                                <!-- Protobuf (conflict with Neo4j) -->
+                                <relocation>
+                                    <pattern>com.google.protobuf</pattern>
+                                    <shadedPattern>n20s.shaded.com.google.protobuf</shadedPattern>
+                                </relocation>
+                                <!-- Gson (conflict with Neo4j) -->
+                                <relocation>
+                                    <pattern>com.google.gson</pattern>
+                                    <shadedPattern>n20s.shaded.com.google.gson</shadedPattern>
+                                </relocation>
+                                <!-- Jackson (conflict with Neo4j) -->
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>n20s.shaded.com.fasterxml.jackson</shadedPattern>
+                                </relocation>
+                                <!-- JSON-LD -->
+                                <relocation>
+                                    <pattern>com.github.jsonldjava</pattern>
+                                    <shadedPattern>n20s.shaded.com.github.jsonldjava</shadedPattern>
+                                </relocation>
+                                <!-- Titanium JSON-LD -->
+                                <relocation>
+                                    <pattern>com.apicatalog</pattern>
+                                    <shadedPattern>n20s.shaded.com.apicatalog</shadedPattern>
+                                </relocation>
+                                <!-- Jakarta JSON -->
+                                <relocation>
+                                    <pattern>org.glassfish.json</pattern>
+                                    <shadedPattern>n20s.shaded.org.glassfish.json</shadedPattern>
+                                </relocation>
+                                <!-- Dexx collections -->
+                                <relocation>
+                                    <pattern>com.github.andrewoma.dexx</pattern>
+                                    <shadedPattern>n20s.shaded.com.github.andrewoma.dexx</shadedPattern>
+                                </relocation>
+                                <!-- RoaringBitmap -->
+                                <relocation>
+                                    <pattern>org.roaringbitmap</pattern>
+                                    <shadedPattern>n20s.shaded.org.roaringbitmap</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
                         </configuration>
                     </execution>
                 </executions>

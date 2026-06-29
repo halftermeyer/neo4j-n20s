@@ -194,19 +194,13 @@ mvn clean package -DskipTests
 
 ### Deploy
 
-Copy these JARs to your Neo4j `plugins/` directory:
+Copy the single fat JAR to your Neo4j `plugins/` directory:
 
+```bash
+cp target/n20s-plugin-1.0.0-SNAPSHOT.jar $NEO4J_HOME/plugins/
 ```
-target/n20s-plugin-1.0.0-SNAPSHOT.jar
-target/lib/jena-arq-4.10.0.jar
-target/lib/jena-base-4.10.0.jar
-target/lib/jena-core-4.10.0.jar
-target/lib/jena-iri-4.10.0.jar
-target/lib/jena-shacl-4.10.0.jar
-target/lib/libthrift-0.19.0.jar
-target/lib/collection-0.7.jar
-target/lib/commons-collections4-4.4.jar
-```
+
+All dependencies (Apache Jena, SHACL, etc.) are bundled and relocated to avoid classpath conflicts.
 
 ### Configure
 

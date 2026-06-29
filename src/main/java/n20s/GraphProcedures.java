@@ -1,9 +1,14 @@
 package n20s;
 
+import org.apache.jena.graph.Graph;
 import org.apache.jena.query.*;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.reasoner.ReasonerRegistry;
 import org.apache.jena.reasoner.Reasoner;
+import org.apache.jena.shacl.ShaclValidator;
+import org.apache.jena.shacl.Shapes;
+import org.apache.jena.shacl.ValidationReport;
+import org.apache.jena.shacl.validation.ReportEntry;
 import org.neo4j.procedure.*;
 
 import java.util.*;
@@ -190,6 +195,63 @@ public class GraphProcedures {
         long after = materialized.size();
 
         return Stream.of(new InferResult(name, before, after, profile.toUpperCase()));
+    }
+
+    // ── n20s.graph.validate() ────────────────────────────────
+
+    public static class ValidationResult {
+        public String focusNode;
+        public String path;
+        public String severity;
+        public String message;
+        public String value;
+        public String sourceShape;
+
+        public ValidationResult(String focusNode, String path, String severity,
+                                String message, String value, String sourceShape) {
+            this.focusNode = focusNode;
+            this.path = path;
+            this.severity = severity;
+            this.message = message;
+            this.value = value;
+            this.sourceShape = sourceShape;
+        }
+    }
+
+    @Procedure(name = "n20s.graph.validate", mode = Mode.READ)
+    @Description("Validate a named in-memory RDF graph against SHACL shapes contained in the same graph.")
+    public Stream<ValidationResult> validate(@Name("name") String name) {
+
+        Model model = GraphCatalog.get(name);
+        Graph dataGraph = model.getGraph();
+
+        // Parse SHACL shapes from the same model
+        Shapes shapes = Shapes.parse(dataGraph);
+
+        // Validate
+        ValidationReport report = ShaclValidator.get().validate(shapes, dataGraph);
+
+        List<ValidationResult> results = new ArrayList<>();
+
+        if (report.conforms()) {
+            results.add(new ValidationResult(
+                    null, null, "INFO", "Validation passed — graph conforms to all shapes.",
+                    null, null));
+            return results.stream();
+        }
+
+        for (ReportEntry entry : report.getEntries()) {
+            String focusNode = entry.focusNode() != null ? entry.focusNode().toString() : null;
+            String path = entry.resultPath() != null ? entry.resultPath().toString() : null;
+            String severity = entry.severity() != null ? entry.severity().toString() : "Violation";
+            String message = entry.message() != null ? entry.message() : "";
+            String value = entry.value() != null ? entry.value().toString() : null;
+            String sourceShape = entry.source() != null ? entry.source().toString() : null;
+
+            results.add(new ValidationResult(focusNode, path, severity, message, value, sourceShape));
+        }
+
+        return results.stream();
     }
 
     // ── n20s.graph.triples() ──────────────────────────────────

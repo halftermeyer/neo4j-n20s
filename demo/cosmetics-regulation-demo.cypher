@@ -194,6 +194,18 @@ CREATE
 (tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Tocopherol', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#Antioxidant'}),
 (tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Tocopherol', p: 'http://example.org/cosmo#stabilizes', o: 'http://example.org/cosmo#RetinoidAgent'}),
 
+// RDF-level formulation composition (for SHACL SPARQL constraints)
+// Product 5: Retinol Booster contains Retinol + Ascorbic Acid
+(p5)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#RetinolBooster', p: 'http://example.org/cosmo#containsIngredient', o: 'http://example.org/cosmo#Retinol'}),
+(p5)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#RetinolBooster', p: 'http://example.org/cosmo#containsIngredient', o: 'http://example.org/cosmo#AscorbicAcid'}),
+(p5)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#RetinolBooster', p: 'http://example.org/cosmo#containsIngredient', o: 'http://example.org/cosmo#Tocopherol'}),
+// Product 1: Anti-Aging Serum contains Retinol + Niacinamide
+(p1)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#AntiAgingSerum', p: 'http://example.org/cosmo#containsIngredient', o: 'http://example.org/cosmo#Retinol'}),
+(p1)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#AntiAgingSerum', p: 'http://example.org/cosmo#containsIngredient', o: 'http://example.org/cosmo#Niacinamide'}),
+// Product 4: Brightening Serum contains Ascorbic Acid + Niacinamide
+(p4)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#BrighteningSerum', p: 'http://example.org/cosmo#containsIngredient', o: 'http://example.org/cosmo#AscorbicAcid'}),
+(p4)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#BrighteningSerum', p: 'http://example.org/cosmo#containsIngredient', o: 'http://example.org/cosmo#Niacinamide'}),
+
 // ── RDF triples: ontology (class hierarchy + rules) ──────────
 
 (:Triple:Ontology {s: 'http://example.org/cosmo#RetinoidAgent', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#ActiveIngredient'}),
@@ -219,7 +231,57 @@ CREATE
 
 (:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://example.org/cosmo#incompatibleWith', o: 'http://example.org/cosmo#VitaminDerivative'}),
 (:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://example.org/cosmo#incompatibilityRisk', o: '"Niacin flushing reaction at low pH"'}),
-(:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://example.org/cosmo#incompatibilitySeverity', o: '"low"'});
+(:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://example.org/cosmo#incompatibilitySeverity', o: '"low"'}),
+
+// ── SHACL Shapes ─────────────────────────────────────────────
+// Validation rules as RDF triples (sh: namespace)
+// These are projected alongside data + ontology into n20s
+
+// Shape 1: Retinoid + Acid incompatibility (SPARQL constraint)
+(:Triple:SHACLShape {s: 'http://example.org/cosmo#RetinoidAcidShape',
+  p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+  o: 'http://www.w3.org/ns/shacl#NodeShape'}),
+(:Triple:SHACLShape {s: 'http://example.org/cosmo#RetinoidAcidShape',
+  p: 'http://www.w3.org/ns/shacl#targetClass',
+  o: 'http://example.org/cosmo#RetinoidAgent'}),
+(:Triple:SHACLShape {s: 'http://example.org/cosmo#RetinoidAcidShape',
+  p: 'http://www.w3.org/ns/shacl#severity',
+  o: 'http://www.w3.org/ns/shacl#Violation'}),
+(:Triple:SHACLShape {s: 'http://example.org/cosmo#RetinoidAcidShape',
+  p: 'http://www.w3.org/ns/shacl#sparql',
+  o: '_:sparql1'}),
+(:Triple:SHACLShape {s: '_:sparql1',
+  p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+  o: 'http://www.w3.org/ns/shacl#SPARQLConstraint'}),
+(:Triple:SHACLShape {s: '_:sparql1',
+  p: 'http://www.w3.org/ns/shacl#message',
+  o: '"Retinoid ingredient is incompatible with acid active agent in the same formulation"'}),
+(:Triple:SHACLShape {s: '_:sparql1',
+  p: 'http://www.w3.org/ns/shacl#select',
+  o: '"SELECT $this WHERE { $this <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>/<http://www.w3.org/2000/01/rdf-schema#subClassOf>* <http://example.org/cosmo#RetinoidAgent> . ?formulation <http://example.org/cosmo#containsIngredient> $this . ?formulation <http://example.org/cosmo#containsIngredient> ?other . ?other <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>/<http://www.w3.org/2000/01/rdf-schema#subClassOf>* <http://example.org/cosmo#AcidActiveAgent> . FILTER(?other != $this) }"'}),
+
+// Shape 2: Every active ingredient must have a classification
+(:Triple:SHACLShape {s: 'http://example.org/cosmo#ActiveIngredientShape',
+  p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+  o: 'http://www.w3.org/ns/shacl#NodeShape'}),
+(:Triple:SHACLShape {s: 'http://example.org/cosmo#ActiveIngredientShape',
+  p: 'http://www.w3.org/ns/shacl#targetClass',
+  o: 'http://example.org/cosmo#ActiveIngredient'}),
+(:Triple:SHACLShape {s: 'http://example.org/cosmo#ActiveIngredientShape',
+  p: 'http://www.w3.org/ns/shacl#property',
+  o: '_:prop_maxconc'}),
+(:Triple:SHACLShape {s: '_:prop_maxconc',
+  p: 'http://www.w3.org/ns/shacl#path',
+  o: 'http://example.org/cosmo#maxConcentrationEU'}),
+(:Triple:SHACLShape {s: '_:prop_maxconc',
+  p: 'http://www.w3.org/ns/shacl#minCount',
+  o: '"1"'}),
+(:Triple:SHACLShape {s: '_:prop_maxconc',
+  p: 'http://www.w3.org/ns/shacl#severity',
+  o: 'http://www.w3.org/ns/shacl#Warning'}),
+(:Triple:SHACLShape {s: '_:prop_maxconc',
+  p: 'http://www.w3.org/ns/shacl#message',
+  o: '"Active ingredient missing EU max concentration limit — regulatory gap"'});
 
 
 // ══════════════════════════════════════════════════════════════
@@ -366,7 +428,74 @@ RETURN row;
 CALL n20s.graph.drop('booster_check');
 
 
-// ── Demo 6: Full portfolio risk scan ─────────────────────────
+// ── Demo 7a: SHACL validation — project Retinol Booster + shapes ─
+//
+// Project the Retinol Booster's ingredients + ontology + SHACL shapes.
+// The SPARQL constraint checks: "is a Retinoid co-formulated with an Acid?"
+// No RDFS inference needed — the SPARQL property path handles class traversal.
+
+CALL {
+  MATCH (:Product {name: 'Retinol Booster'})-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (:Product {name: 'Retinol Booster'})-[:CONTAINS*]->(:Ingredient)-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:Ontology)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:SHACLShape)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+}
+WITH n20s.graph.project('shacl_booster', s, p, o) AS g
+RETURN g.graphName, g.tripleCount;
+
+// ── Demo 7b: Run SHACL validation ────────────────────────────
+//
+// Expected: Retinol flagged as Violation (co-formulated with Ascorbic Acid)
+
+CALL n20s.graph.validate('shacl_booster')
+YIELD focusNode, path, severity, message
+RETURN focusNode, severity, message;
+
+// ── Demo 7c: Cleanup SHACL check ────────────────────────────
+
+CALL n20s.graph.drop('shacl_booster');
+
+// ── Demo 7d: SHACL validation — Brightening Serum ───────────
+//
+// Ascorbic Acid (AcidActiveAgent) + Niacinamide (VitaminDerivative)
+// Shape 1 won't fire (no Retinoid). But Shape 2 (missing maxConcentration)
+// should warn on ingredients without EU limits.
+
+CALL {
+  MATCH (:Product {name: 'Brightening Serum'})-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (:Product {name: 'Brightening Serum'})-[:CONTAINS*]->(:Ingredient)-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:Ontology)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:SHACLShape)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+}
+WITH n20s.graph.project('shacl_brightening', s, p, o) AS g
+RETURN g.graphName, g.tripleCount;
+
+// ── Demo 7e: Validate Brightening Serum ──────────────────────
+
+CALL n20s.graph.validate('shacl_brightening')
+YIELD focusNode, path, severity, message
+RETURN focusNode, severity, message;
+
+// ── Demo 7f: Cleanup ─────────────────────────────────────────
+
+CALL n20s.graph.drop('shacl_brightening');
+
+
+// ── Demo 8: Full portfolio risk scan ─────────────────────────
 //
 // For each product sold in EU: compute Retinol concentration,
 // check against limit, flag non-compliant

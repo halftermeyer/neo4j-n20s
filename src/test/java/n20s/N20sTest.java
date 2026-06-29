@@ -600,6 +600,78 @@ class N20sTest {
         }
     }
 
+    // ── toTurtle ─────────────────────────────────────────────────
+
+    @Test
+    void testToTurtle() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('export_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                    ex:Athena a ex:God .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.toTurtle('export_test')
+                YIELD graphName, tripleCount, turtle
+                RETURN graphName, tripleCount, turtle
+                """);
+
+            var record = result.single();
+            assertEquals("export_test", record.get("graphName").asString());
+            assertEquals(2, record.get("tripleCount").asLong());
+            String turtle = record.get("turtle").asString();
+            assertTrue(turtle.contains("Zeus"));
+            assertTrue(turtle.contains("Athena"));
+            assertTrue(turtle.contains("God"));
+        }
+    }
+
+    @Test
+    void testToTurtle_roundtrip() {
+        // Create graph, export, re-import into new graph, verify same triple count
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('rt_source', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God ;
+                        ex:name "Zeus"@en ;
+                        ex:power "lightning" .
+                ')
+                """);
+        }
+
+        String exportedTurtle;
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.toTurtle('rt_source')
+                YIELD turtle RETURN turtle
+                """);
+            exportedTurtle = result.single().get("turtle").asString();
+        }
+
+        try (Session session = driver.session()) {
+            session.run("CALL n20s.graph.addTurtle('rt_target', $ttl)",
+                    Map.of("ttl", exportedTurtle));
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.list() YIELD graphName, tripleCount
+                WHERE graphName IN ['rt_source', 'rt_target']
+                RETURN graphName, tripleCount ORDER BY graphName
+                """);
+            var rows = result.list();
+            assertEquals(rows.get(0).get("tripleCount").asLong(),
+                         rows.get(1).get("tripleCount").asLong(),
+                         "Round-trip should preserve triple count");
+        }
+    }
+
     // ── n20s.version() ──────────────────────────────────────────
 
     @Test

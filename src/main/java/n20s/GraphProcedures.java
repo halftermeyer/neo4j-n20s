@@ -317,6 +317,29 @@ public class GraphProcedures {
         return Stream.of(new AddTurtleResult(name, before, after));
     }
 
+    // ── n20s.graph.toTurtle() ─────────────────────────────────
+
+    public static class TurtleExportResult {
+        public String graphName;
+        public long tripleCount;
+        public String turtle;
+
+        public TurtleExportResult(String name, long count, String turtle) {
+            this.graphName = name;
+            this.tripleCount = count;
+            this.turtle = turtle;
+        }
+    }
+
+    @Procedure(name = "n20s.graph.toTurtle", mode = Mode.READ)
+    @Description("Serialize a named in-memory RDF graph as a Turtle string.")
+    public Stream<TurtleExportResult> toTurtle(@Name("name") String name) {
+        Model model = GraphCatalog.get(name);
+        java.io.StringWriter writer = new java.io.StringWriter();
+        model.write(writer, "TURTLE");
+        return Stream.of(new TurtleExportResult(name, model.size(), writer.toString()));
+    }
+
     // ── n20s.graph.triples() ──────────────────────────────────
 
     @Procedure(name = "n20s.graph.triples", mode = Mode.READ)

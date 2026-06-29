@@ -59,6 +59,7 @@ CALL n20s.graph.drop('check');
 | `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
 | `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes all entailed triples |
 | `n20s.graph.validate(name)` | SHACL validation — shapes must be projected in the same graph |
+| `n20s.graph.toTurtle(name)` | Serialize a named graph as a Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |
 | `n20s.graph.list()` | List all in-memory graphs with triple counts |
 | `n20s.graph.drop(name)` | Drop a named graph and free memory |

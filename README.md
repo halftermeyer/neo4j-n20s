@@ -114,15 +114,19 @@ CALL n20s.graph.inferWithRules('check', '
 YIELD newTriples RETURN newTriples;
 ```
 
-Like the built-in profiles, custom rules support both forward and backward chaining:
+Like the built-in profiles, custom rules support both forward and backward chaining. An optional reasoning profile (RDFS, OWL_MICRO, etc.) can be layered underneath — RDFS runs first, then custom rules fire on top:
 
 ```cypher
 // FORWARD: materialize, then query
-CALL n20s.graph.inferWithRules('g', '[rule: ...] [rule: ...]');
+CALL n20s.graph.inferWithRules('g', '[rule: ...]');
 CALL n20s.graph.query('g', 'SELECT ...');
 
 // BACKWARD: reason on-the-fly, no materialization
-CALL n20s.graph.queryWithRules('g', 'SELECT ...', '[rule: ...] [rule: ...]');
+CALL n20s.graph.queryWithRules('g', 'SELECT ...', '[rule: ...]');
+
+// COMBINED: RDFS + custom rules (both forward and backward)
+CALL n20s.graph.inferWithRules('g', '[rule: ...]', 'RDFS');
+CALL n20s.graph.queryWithRules('g', 'SELECT ...', '[rule: ...]', 'RDFS');
 ```
 
 ## Triples as Cargo

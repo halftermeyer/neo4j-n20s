@@ -395,6 +395,56 @@ class N20sTest {
         }
     }
 
+    @Test
+    void testQueryWithRules_plusRDFS() {
+        // RDFS infers Zeus is a Being (God subClassOf Being)
+        // Custom rule infers Beings are Worshipped
+        // Combined: Zeus → God → Being → Worshipped
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('combo_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                    ex:Zeus a ex:God .
+                    ex:God rdfs:subClassOf ex:Being .
+                ')
+                """);
+        }
+
+        // Without RDFS profile: custom rule alone can't see Zeus as a Being
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.queryWithRules('combo_test',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Worshipped> }',
+                    '[worship: (?x rdf:type http://ex.org/Being) -> (?x rdf:type http://ex.org/Worshipped)]')
+                YIELD row RETURN row
+                """);
+            assertTrue(result.list().isEmpty(), "Without RDFS, Zeus is not a Being yet");
+        }
+
+        // With RDFS profile: RDFS infers Being, custom rule infers Worshipped
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.queryWithRules('combo_test',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Worshipped> }',
+                    '[worship: (?x rdf:type http://ex.org/Being) -> (?x rdf:type http://ex.org/Worshipped)]',
+                    'RDFS')
+                YIELD row RETURN row
+                """);
+            var rows = result.list();
+            assertEquals(1, rows.size());
+            assertTrue(rows.get(0).get("row").asMap().get("x").toString().contains("Zeus"));
+        }
+
+        // Base model unchanged
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.triples('combo_test') YIELD subject RETURN count(*) AS cnt
+                """);
+            assertEquals(2, result.single().get("cnt").asLong());
+        }
+    }
+
     // ── backward chaining ───────────────────────────────────────
 
     @Test

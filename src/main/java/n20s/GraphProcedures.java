@@ -134,13 +134,21 @@ public class GraphProcedures {
 
     @Procedure(name = "n20s.graph.queryWithRules", mode = Mode.READ)
     @Description("Run a SPARQL SELECT query with custom Jena rules applied via backward chaining (no materialization). " +
+            "Optional reasoning profile (RDFS, OWL_MICRO, OWL_MINI, OWL) is applied first, then custom rules are layered on top. " +
             "Rules use Jena rule syntax: [name: (?x p ?y) -> (?x q ?y)]")
     public Stream<QueryResult> queryWithRules(
             @Name("name") String name,
             @Name("sparql") String sparql,
-            @Name("rules") String rules) {
+            @Name("rules") String rules,
+            @Name(value = "reasoningProfile", defaultValue = "") String reasoningProfile) {
 
         Model model = GraphCatalog.get(name);
+
+        // Apply built-in reasoning profile first if specified
+        if (reasoningProfile != null && !reasoningProfile.isEmpty()) {
+            Reasoner builtinReasoner = resolveReasoner(reasoningProfile);
+            model = ModelFactory.createInfModel(builtinReasoner, model);
+        }
 
         List<Rule> ruleList;
         try {
@@ -268,14 +276,22 @@ public class GraphProcedures {
 
     @Procedure(name = "n20s.graph.inferWithRules", mode = Mode.READ)
     @Description("Run custom rule-based inference on a named in-memory RDF graph using Jena rule syntax. " +
-            "Materializes inferred triples. Example rule: " +
+            "Optional reasoning profile (RDFS, OWL_MICRO, OWL_MINI, OWL) is applied first, then custom rules are layered on top. " +
+            "Materializes all inferred triples. Example rule: " +
             "[name: (?x rdf:type ex:A) (?x ex:prop ?y) -> (?x rdf:type ex:B)]")
     public Stream<InferResult> inferWithRules(
             @Name("name") String name,
-            @Name("rules") String rules) {
+            @Name("rules") String rules,
+            @Name(value = "reasoningProfile", defaultValue = "") String reasoningProfile) {
 
         Model model = GraphCatalog.get(name);
         long before = model.size();
+
+        // Apply built-in reasoning profile first if specified
+        if (reasoningProfile != null && !reasoningProfile.isEmpty()) {
+            Reasoner builtinReasoner = resolveReasoner(reasoningProfile);
+            model = ModelFactory.createInfModel(builtinReasoner, model);
+        }
 
         List<Rule> ruleList;
         try {

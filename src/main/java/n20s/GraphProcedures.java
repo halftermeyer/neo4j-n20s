@@ -69,12 +69,26 @@ public class GraphProcedures {
     }
 
     @Procedure(name = "n20s.graph.query", mode = Mode.READ)
-    @Description("Run a SPARQL SELECT query on a named in-memory RDF graph.")
+    @Description("Run a SPARQL SELECT query on a named in-memory RDF graph. Optional reasoning profile (RDFS, OWL_MICRO, OWL_MINI, OWL) enables backward-chaining inference during query execution — no separate infer() step needed.")
     public Stream<QueryResult> query(
             @Name("name") String name,
-            @Name("sparql") String sparql) {
+            @Name("sparql") String sparql,
+            @Name(value = "reasoningProfile", defaultValue = "") String reasoningProfile) {
 
         Model model = GraphCatalog.get(name);
+
+        // If reasoning profile specified, wrap in InfModel for backward chaining
+        if (reasoningProfile != null && !reasoningProfile.isEmpty()) {
+            Reasoner reasoner;
+            switch (reasoningProfile.toUpperCase()) {
+                case "RDFS": reasoner = ReasonerRegistry.getRDFSReasoner(); break;
+                case "OWL_MICRO": reasoner = ReasonerRegistry.getOWLMicroReasoner(); break;
+                case "OWL_MINI": reasoner = ReasonerRegistry.getOWLMiniReasoner(); break;
+                case "OWL": reasoner = ReasonerRegistry.getOWLReasoner(); break;
+                default: reasoner = ReasonerRegistry.getRDFSReasoner(); break;
+            }
+            model = ModelFactory.createInfModel(reasoner, model);
+        }
 
         try (QueryExecution qe = QueryExecutionFactory.create(sparql, model)) {
             ResultSet rs = qe.execSelect();

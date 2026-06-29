@@ -329,63 +329,12 @@ RETURN alt.name AS substitute, alt.inci AS inci,
        collect(sup.name) AS suppliers;
 
 
-// ── Demo 4: Validate substitute with n20s ────────────────────
-//
-// "Is Bakuchiol compliant in EU? Any interactions with other
-//  ingredients in the Anti-Aging Serum?"
+// ══════════════════════════════════════════════════════════════
+// FORWARD CHAINING — materialize inferences, then query
+// project → infer → query (3 steps)
+// ══════════════════════════════════════════════════════════════
 
-CALL {
-  MATCH (:Ingredient {name: 'Bakuchiol'})-[:HAS_TRIPLE]->(t:Triple)
-  RETURN t.s AS s, t.p AS p, t.o AS o
-  UNION
-  MATCH (:Product {name: 'Anti-Aging Serum'})-[:CONTAINS*]->(:Ingredient)-[:HAS_TRIPLE]->(t:Triple)
-  RETURN t.s AS s, t.p AS p, t.o AS o
-  UNION
-  MATCH (t:Triple:Ontology)
-  RETURN t.s AS s, t.p AS p, t.o AS o
-}
-WITH n20s.graph.project('reformulation_check', s, p, o) AS g
-RETURN g.graphName AS graph, g.tripleCount AS triples;
-
-// ── Demo 4b: Infer RDFS on substitute check ─────────────────
-
-CALL n20s.graph.infer('reformulation_check', 'RDFS')
-YIELD triplesBefore, triplesAfter, newTriples
-RETURN triplesBefore, triplesAfter, newTriples;
-
-// ── Demo 4c: Check incompatibilities ─────────────────────────
-
-CALL n20s.graph.query('reformulation_check', '
-  PREFIX cosmo: <http://example.org/cosmo#>
-  PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-  SELECT ?ing1 ?ing2 ?class1 ?class2 ?risk ?severity WHERE {
-    ?ing1 rdf:type ?class1 .
-    ?ing2 rdf:type ?class2 .
-    ?class1 cosmo:incompatibleWith ?class2 .
-    ?class1 cosmo:incompatibilityRisk ?risk .
-    ?class1 cosmo:incompatibilitySeverity ?severity .
-    FILTER(?ing1 != ?ing2)
-  }
-') YIELD row
-RETURN row;
-
-// ── Demo 4d: Check EU concentration limits ───────────────────
-
-CALL n20s.graph.query('reformulation_check', '
-  PREFIX cosmo: <http://example.org/cosmo#>
-  SELECT ?ingredient ?limit WHERE {
-    ?ingredient cosmo:maxConcentrationEU ?limit .
-  }
-') YIELD row
-RETURN row;
-
-// ── Demo 4e: Cleanup reformulation check ─────────────────────
-
-CALL n20s.graph.drop('reformulation_check');
-
-
-// ── Demo 5a: Project Retinol Booster — known incompatibility ─
+// ── Demo 4a: Project Retinol Booster ─────────────────────────
 //
 // Retinol Booster has Retinol + Vitamin C (Ascorbic Acid)
 // Retinoids are incompatible with acid actives
@@ -397,18 +346,18 @@ CALL {
   MATCH (t:Triple:Ontology)
   RETURN t.s AS s, t.p AS p, t.o AS o
 }
-WITH n20s.graph.project('booster_check', s, p, o) AS g
+WITH n20s.graph.project('forward_check', s, p, o) AS g
 RETURN g.graphName, g.tripleCount;
 
-// ── Demo 5b: Infer RDFS on booster ───────────────────────────
+// ── Demo 4b: Forward chaining — materialize all RDFS inferences ─
 
-CALL n20s.graph.infer('booster_check', 'RDFS')
+CALL n20s.graph.infer('forward_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
 RETURN triplesBefore, triplesAfter, newTriples;
 
-// ── Demo 5c: Detect incompatibilities in booster ─────────────
+// ── Demo 4c: Query the materialized graph ────────────────────
 
-CALL n20s.graph.query('booster_check', '
+CALL n20s.graph.query('forward_check', '
   PREFIX cosmo: <http://example.org/cosmo#>
   PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
@@ -423,9 +372,76 @@ CALL n20s.graph.query('booster_check', '
 ') YIELD row
 RETURN row;
 
-// ── Demo 5d: Cleanup booster check ───────────────────────────
+// ── Demo 4d: Cleanup forward check ───────────────────────────
 
-CALL n20s.graph.drop('booster_check');
+CALL n20s.graph.drop('forward_check');
+
+
+// ══════════════════════════════════════════════════════════════
+// BACKWARD CHAINING — reason on-the-fly during query
+// project → query with 'RDFS' (2 steps, no materialization)
+// ══════════════════════════════════════════════════════════════
+
+// ── Demo 5a: Project Retinol Booster (same as before) ────────
+
+CALL {
+  MATCH (:Product {name: 'Retinol Booster'})-[:CONTAINS*]->(:Ingredient)-[:HAS_TRIPLE]->(t:Triple)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:Ontology)
+  RETURN t.s AS s, t.p AS p, t.o AS o
+}
+WITH n20s.graph.project('backward_check', s, p, o) AS g
+RETURN g.graphName, g.tripleCount;
+
+// ── Demo 5b: Query with backward chaining — no infer() needed ─
+//
+// The third parameter 'RDFS' tells n20s to reason lazily
+// during query execution. Same result, fewer steps.
+
+CALL n20s.graph.query('backward_check', '
+  PREFIX cosmo: <http://example.org/cosmo#>
+  PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+  SELECT ?ing1 ?ing2 ?risk ?severity WHERE {
+    ?ing1 rdf:type ?class1 .
+    ?ing2 rdf:type ?class2 .
+    ?class1 cosmo:incompatibleWith ?class2 .
+    ?class1 cosmo:incompatibilityRisk ?risk .
+    ?class1 cosmo:incompatibilitySeverity ?severity .
+    FILTER(?ing1 != ?ing2)
+  }
+', 'RDFS') YIELD row
+RETURN row;
+
+// ── Demo 5c: Check EU limits (also with backward chaining) ───
+
+CALL n20s.graph.query('backward_check', '
+  PREFIX cosmo: <http://example.org/cosmo#>
+  SELECT ?ingredient ?limit WHERE {
+    ?ingredient cosmo:maxConcentrationEU ?limit .
+  }
+') YIELD row
+RETURN row;
+
+// ── Demo 5d: Cleanup backward check ──────────────────────────
+
+CALL n20s.graph.drop('backward_check');
+
+
+// ══════════════════════════════════════════════════════════════
+// COMPARISON
+//
+// Forward chaining:  project → infer() → query()   [3 steps]
+//   + All inferences materialized — fast repeated queries
+//   + Can inspect inferred triples with n20s.graph.triples()
+//   - Extra step, more memory (stores all entailed triples)
+//
+// Backward chaining: project → query(... , 'RDFS')  [2 steps]
+//   + Simpler workflow — no separate infer step
+//   + Only computes inferences needed for the query
+//   - Each query re-reasons (slower if many queries on same graph)
+// ══════════════════════════════════════════════════════════════
 
 
 // ── Demo 7a: SHACL validation — project Retinol Booster + shapes ─

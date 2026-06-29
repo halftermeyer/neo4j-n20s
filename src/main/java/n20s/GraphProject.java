@@ -51,7 +51,13 @@ public class GraphProject {
 
             RDFNode object;
             if (o.startsWith("\"")) {
-                object = parseLiteral(model, o);
+                // Strip the leading " before parsing — our convention
+                // is that literals start with " in the (s,p,o) model
+                String stripped = o.substring(1);
+                if (stripped.endsWith("\"")) {
+                    stripped = stripped.substring(0, stripped.length() - 1);
+                }
+                object = parseLiteral(model, stripped);
             } else if (o.startsWith("_:")) {
                 object = model.createResource(new AnonId(o.substring(2)));
             } else {
@@ -78,39 +84,37 @@ public class GraphProject {
         }
 
         /**
-         * Parse RDF literal from N-Triples-style string:
-         *   "value" — plain literal
-         *   "value"@en — language-tagged
-         *   "value"^^<datatype> — typed literal
+         * Parse a pre-stripped literal value (outer quotes already removed by caller).
+         * Input formats:
+         *   value              — plain literal
+         *   value@en           — language-tagged (trailing @lang)
+         *   value^^<datatype>  — typed literal (trailing ^^<uri>)
          */
-        private static RDFNode parseLiteral(Model model, String raw) {
-            if (raw.contains("\"^^<")) {
-                int split = raw.lastIndexOf("\"^^<");
-                String value = raw.substring(1, split);
-                String datatype = raw.substring(split + 4, raw.length() - 1);
-                // Parse typed literals properly for SHACL (needs actual Java types)
+        private static RDFNode parseLiteral(Model model, String value) {
+            // Typed literal: value^^<datatype>
+            if (value.contains("^^<") && value.endsWith(">")) {
+                int split = value.lastIndexOf("^^<");
+                String val = value.substring(0, split);
+                String datatype = value.substring(split + 3, value.length() - 1);
                 if (datatype.endsWith("integer") || datatype.endsWith("int")) {
-                    try { return model.createTypedLiteral(Integer.parseInt(value)); }
+                    try { return model.createTypedLiteral(Integer.parseInt(val)); }
                     catch (NumberFormatException e) { /* fall through */ }
                 } else if (datatype.endsWith("decimal") || datatype.endsWith("double") || datatype.endsWith("float")) {
-                    try { return model.createTypedLiteral(Double.parseDouble(value)); }
+                    try { return model.createTypedLiteral(Double.parseDouble(val)); }
                     catch (NumberFormatException e) { /* fall through */ }
                 } else if (datatype.endsWith("boolean")) {
-                    return model.createTypedLiteral(Boolean.parseBoolean(value));
+                    return model.createTypedLiteral(Boolean.parseBoolean(val));
                 }
-                return model.createTypedLiteral(value, datatype);
+                return model.createTypedLiteral(val, datatype);
             }
-            if (raw.contains("\"@")) {
-                int split = raw.lastIndexOf("\"@");
-                String value = raw.substring(1, split);
-                String lang = raw.substring(split + 2);
-                return model.createLiteral(value, lang);
+            // Language-tagged: value@lang
+            if (value.matches(".*@[a-zA-Z]{2,}$")) {
+                int split = value.lastIndexOf('@');
+                String val = value.substring(0, split);
+                String lang = value.substring(split + 1);
+                return model.createLiteral(val, lang);
             }
-            // Plain literal — strip quotes
-            String value = raw;
-            if (value.startsWith("\"") && value.endsWith("\"")) {
-                value = value.substring(1, value.length() - 1);
-            }
+            // Plain literal
             return model.createLiteral(value);
         }
     }

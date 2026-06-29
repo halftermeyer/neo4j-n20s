@@ -161,65 +161,65 @@ CREATE
 
 // ── RDF triples: ingredient classifications ──────────────────
 
-(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'rdf:type', o: 'cosmo:RetinoidAgent'}),
-(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'rdf:type', o: 'cosmo:PhotosensitiveAgent'}),
-(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'cosmo:maxConcentrationEU', o: '"0.05"'}),
-(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'cosmo:regulatoryRef', o: '"EC 1223/2009 Annex III/98a"'}),
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Retinol', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#RetinoidAgent'}),
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Retinol', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#PhotosensitiveAgent'}),
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Retinol', p: 'http://example.org/cosmo#maxConcentrationEU', o: '"0.05"'}),
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Retinol', p: 'http://example.org/cosmo#regulatoryRef', o: '"EC 1223/2009 Annex III/98a"'}),
 
-(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'rdf:type', o: 'cosmo:RetinoidAgent'}),
-(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'rdf:type', o: 'cosmo:PhotosensitiveAgent'}),
-(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'cosmo:maxConcentrationEU', o: '"0.01"'}),
+(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Retinal', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#RetinoidAgent'}),
+(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Retinal', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#PhotosensitiveAgent'}),
+(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Retinal', p: 'http://example.org/cosmo#maxConcentrationEU', o: '"0.01"'}),
 
-(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'rdf:type', o: 'cosmo:RetinoidAlternative'}),
-(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'rdf:type', o: 'cosmo:PlantExtract'}),
-(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'cosmo:functionallyEquivalentTo', o: 'cosmo:RetinoidAgent'}),
+(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Bakuchiol', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#RetinoidAlternative'}),
+(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Bakuchiol', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#PlantExtract'}),
+(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Bakuchiol', p: 'http://example.org/cosmo#functionallyEquivalentTo', o: 'http://example.org/cosmo#RetinoidAgent'}),
 
-(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'rdf:type', o: 'cosmo:Antioxidant'}),
-(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'rdf:type', o: 'cosmo:AcidActiveAgent'}),
-(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'cosmo:optimalPH', o: '"3.5"'}),
+(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#AscorbicAcid', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#Antioxidant'}),
+(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#AscorbicAcid', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#AcidActiveAgent'}),
+(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#AscorbicAcid', p: 'http://example.org/cosmo#optimalPH', o: '"3.5"'}),
 
-(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'rdf:type', o: 'cosmo:AHAExfoliant'}),
-(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'rdf:type', o: 'cosmo:AcidActiveAgent'}),
-(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'cosmo:maxConcentrationEU', o: '"0.10"'}),
+(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#GlycolicAcid', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#AHAExfoliant'}),
+(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#GlycolicAcid', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#AcidActiveAgent'}),
+(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#GlycolicAcid', p: 'http://example.org/cosmo#maxConcentrationEU', o: '"0.10"'}),
 
-(salicylicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:SalicylicAcid', p: 'rdf:type', o: 'cosmo:BHAExfoliant'}),
-(salicylicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:SalicylicAcid', p: 'cosmo:maxConcentrationEU', o: '"0.02"'}),
+(salicylicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#SalicylicAcid', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#BHAExfoliant'}),
+(salicylicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#SalicylicAcid', p: 'http://example.org/cosmo#maxConcentrationEU', o: '"0.02"'}),
 
-(niacinamide)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Niacinamide', p: 'rdf:type', o: 'cosmo:VitaminDerivative'}),
-(niacinamide)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Niacinamide', p: 'cosmo:optimalPH', o: '"6.0"'}),
+(niacinamide)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Niacinamide', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#VitaminDerivative'}),
+(niacinamide)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Niacinamide', p: 'http://example.org/cosmo#optimalPH', o: '"6.0"'}),
 
-(phenoxyethanol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Phenoxyethanol', p: 'rdf:type', o: 'cosmo:Preservative'}),
-(phenoxyethanol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Phenoxyethanol', p: 'cosmo:maxConcentrationEU', o: '"0.01"'}),
+(phenoxyethanol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Phenoxyethanol', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#Preservative'}),
+(phenoxyethanol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Phenoxyethanol', p: 'http://example.org/cosmo#maxConcentrationEU', o: '"0.01"'}),
 
-(tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Tocopherol', p: 'rdf:type', o: 'cosmo:Antioxidant'}),
-(tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Tocopherol', p: 'cosmo:stabilizes', o: 'cosmo:RetinoidAgent'}),
+(tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Tocopherol', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/cosmo#Antioxidant'}),
+(tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/cosmo#Tocopherol', p: 'http://example.org/cosmo#stabilizes', o: 'http://example.org/cosmo#RetinoidAgent'}),
 
 // ── RDF triples: ontology (class hierarchy + rules) ──────────
 
-(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
-(:Triple:Ontology {s: 'cosmo:RetinoidAlternative', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
-(:Triple:Ontology {s: 'cosmo:Antioxidant', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
-(:Triple:Ontology {s: 'cosmo:AHAExfoliant', p: 'rdfs:subClassOf', o: 'cosmo:Exfoliant'}),
-(:Triple:Ontology {s: 'cosmo:BHAExfoliant', p: 'rdfs:subClassOf', o: 'cosmo:Exfoliant'}),
-(:Triple:Ontology {s: 'cosmo:Exfoliant', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
-(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'rdfs:subClassOf', o: 'cosmo:SensitivityConcern'}),
-(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'rdfs:subClassOf', o: 'cosmo:pHSensitiveAgent'}),
-(:Triple:Ontology {s: 'cosmo:VitaminDerivative', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
-(:Triple:Ontology {s: 'cosmo:PlantExtract', p: 'rdfs:subClassOf', o: 'cosmo:NaturalOrigin'}),
-(:Triple:Ontology {s: 'cosmo:Preservative', p: 'rdfs:subClassOf', o: 'cosmo:FunctionalIngredient'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#RetinoidAgent', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#ActiveIngredient'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#RetinoidAlternative', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#ActiveIngredient'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#Antioxidant', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#ActiveIngredient'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#AHAExfoliant', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#Exfoliant'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#BHAExfoliant', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#Exfoliant'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#Exfoliant', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#ActiveIngredient'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#PhotosensitiveAgent', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#SensitivityConcern'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#pHSensitiveAgent'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#VitaminDerivative', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#ActiveIngredient'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#PlantExtract', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#NaturalOrigin'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#Preservative', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/cosmo#FunctionalIngredient'}),
 
 // Incompatibility rules
-(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:AHAExfoliant'}),
-(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibilityRisk', o: '"Increased photosensitivity and irritation"'}),
-(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibilitySeverity', o: '"high"'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#PhotosensitiveAgent', p: 'http://example.org/cosmo#incompatibleWith', o: 'http://example.org/cosmo#AHAExfoliant'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#PhotosensitiveAgent', p: 'http://example.org/cosmo#incompatibilityRisk', o: '"Increased photosensitivity and irritation"'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#PhotosensitiveAgent', p: 'http://example.org/cosmo#incompatibilitySeverity', o: '"high"'}),
 
-(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:AcidActiveAgent'}),
-(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibilityRisk', o: '"Retinoid degradation at low pH, increased irritation"'}),
-(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibilitySeverity', o: '"medium"'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#RetinoidAgent', p: 'http://example.org/cosmo#incompatibleWith', o: 'http://example.org/cosmo#AcidActiveAgent'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#RetinoidAgent', p: 'http://example.org/cosmo#incompatibilityRisk', o: '"Retinoid degradation at low pH, increased irritation"'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#RetinoidAgent', p: 'http://example.org/cosmo#incompatibilitySeverity', o: '"medium"'}),
 
-(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:VitaminDerivative'}),
-(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibilityRisk', o: '"Niacin flushing reaction at low pH"'}),
-(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibilitySeverity', o: '"low"'});
+(:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://example.org/cosmo#incompatibleWith', o: 'http://example.org/cosmo#VitaminDerivative'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://example.org/cosmo#incompatibilityRisk', o: '"Niacin flushing reaction at low pH"'}),
+(:Triple:Ontology {s: 'http://example.org/cosmo#AcidActiveAgent', p: 'http://example.org/cosmo#incompatibilitySeverity', o: '"low"'});
 
 
 // ══════════════════════════════════════════════════════════════

@@ -206,10 +206,15 @@ All dependencies (Apache Jena, SHACL, etc.) are bundled in a single fat JAR and 
 
 ### Configure
 
-Add to `neo4j.conf`:
+Add n20s to the procedure allowlist in `neo4j.conf`:
 
 ```
-dbms.security.procedures.unrestricted=n20s.*
+dbms.security.procedures.allowlist=n20s.*
+```
+
+If you already have an allowlist (e.g., for APOC or GDS), append n20s to it:
+
+```
 dbms.security.procedures.allowlist=apoc.*,gds.*,n20s.*
 ```
 

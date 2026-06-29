@@ -599,4 +599,72 @@ class N20sTest {
             assertEquals(List.of("graph_a", "graph_b"), names);
         }
     }
+
+    // ── n20s.version() ──────────────────────────────────────────
+
+    @Test
+    void testVersion() {
+        try (Session session = driver.session()) {
+            var result = session.run("CALL n20s.version() YIELD version, jenaVersion RETURN version, jenaVersion");
+            var record = result.single();
+            assertNotNull(record.get("version").asString());
+            assertNotNull(record.get("jenaVersion").asString());
+            assertFalse(record.get("jenaVersion").asString().isEmpty());
+        }
+    }
+
+    // ── error handling ──────────────────────────────────────────
+
+    @Test
+    void testQuery_nonExistentGraph() {
+        try (Session session = driver.session()) {
+            var ex = assertThrows(Exception.class, () ->
+                    session.run("CALL n20s.graph.query('no_such_graph', 'SELECT * WHERE { ?s ?p ?o }') YIELD row RETURN row").list());
+            assertTrue(ex.getMessage().contains("not found"));
+        }
+    }
+
+    @Test
+    void testQuery_invalidSparql() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('sparql_err', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            assertThrows(Exception.class, () ->
+                    session.run("CALL n20s.graph.query('sparql_err', 'NOT VALID SPARQL') YIELD row RETURN row").list());
+        }
+    }
+
+    @Test
+    void testInfer_invalidProfile() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('profile_err', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var ex = assertThrows(Exception.class, () ->
+                    session.run("CALL n20s.graph.infer('profile_err', 'INVALID_PROFILE') YIELD graphName RETURN graphName").list());
+            assertTrue(ex.getMessage().contains("Unknown reasoning profile"));
+        }
+    }
+
+    @Test
+    void testAddTurtle_invalidSyntax() {
+        try (Session session = driver.session()) {
+            var ex = assertThrows(Exception.class, () ->
+                    session.run("CALL n20s.graph.addTurtle('bad_turtle', 'this is not valid turtle @#$%') YIELD added RETURN added").list());
+            assertTrue(ex.getMessage().contains("Invalid Turtle") || ex.getMessage().contains("RiotException"));
+        }
+    }
 }

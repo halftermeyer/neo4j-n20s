@@ -1,5 +1,6 @@
 package n20s;
 
+import org.apache.jena.datatypes.TypeMapper;
 import org.apache.jena.rdf.model.*;
 import org.neo4j.procedure.*;
 
@@ -51,22 +52,7 @@ public class GraphProject {
 
             RDFNode object;
             if (o.startsWith("\"")) {
-                // Strip outer quotes from our (s,p,o) literal convention.
-                // Formats: "value"  or  "value"@en  or  "value"^^<datatype>
-                // Strip leading " always, trailing " only if it's the final char
-                // or right before @lang or ^^<datatype>
-                String stripped = o.substring(1); // remove leading "
-                if (stripped.endsWith("\"")) {
-                    // Plain literal: "value" → value
-                    stripped = stripped.substring(0, stripped.length() - 1);
-                } else if (stripped.contains("\"^^<")) {
-                    // Typed: value"^^<dt> → value^^<dt>
-                    stripped = stripped.replace("\"^^<", "^^<");
-                } else if (stripped.contains("\"@")) {
-                    // Lang-tagged: value"@en → value@en
-                    stripped = stripped.replace("\"@", "@");
-                }
-                object = parseLiteral(model, stripped);
+                object = parseLiteralFromSPO(model, o);
             } else if (o.startsWith("_:")) {
                 object = model.createResource(new AnonId(o.substring(2)));
             } else {
@@ -93,38 +79,40 @@ public class GraphProject {
         }
 
         /**
-         * Parse a pre-stripped literal value (outer quotes already removed by caller).
+         * Parse a literal from (s,p,o) string convention.
          * Input formats:
-         *   value              — plain literal
-         *   value@en           — language-tagged (trailing @lang)
-         *   value^^<datatype>  — typed literal (trailing ^^<uri>)
+         *   "value"              — plain literal
+         *   "value"@en           — language-tagged
+         *   "value"^^<datatype>  — typed literal
          */
-        private static RDFNode parseLiteral(Model model, String value) {
-            // Typed literal: value^^<datatype>
-            if (value.contains("^^<") && value.endsWith(">")) {
-                int split = value.lastIndexOf("^^<");
-                String val = value.substring(0, split);
-                String datatype = value.substring(split + 3, value.length() - 1);
-                if (datatype.endsWith("integer") || datatype.endsWith("int")) {
-                    try { return model.createTypedLiteral(Integer.parseInt(val)); }
-                    catch (NumberFormatException e) { /* fall through */ }
-                } else if (datatype.endsWith("decimal") || datatype.endsWith("double") || datatype.endsWith("float")) {
-                    try { return model.createTypedLiteral(Double.parseDouble(val)); }
-                    catch (NumberFormatException e) { /* fall through */ }
-                } else if (datatype.endsWith("boolean")) {
-                    return model.createTypedLiteral(Boolean.parseBoolean(val));
-                }
-                return model.createTypedLiteral(val, datatype);
+        private static RDFNode parseLiteralFromSPO(Model model, String o) {
+            // Must start with "
+            String rest = o.substring(1);
+
+            // Typed literal: "value"^^<datatype>
+            int typedIdx = rest.indexOf("\"^^<");
+            if (typedIdx >= 0 && rest.endsWith(">")) {
+                String val = rest.substring(0, typedIdx);
+                String datatypeURI = rest.substring(typedIdx + 4, rest.length() - 1);
+                return model.createTypedLiteral(val,
+                        TypeMapper.getInstance().getSafeTypeByName(datatypeURI));
             }
-            // Language-tagged: value@lang
-            if (value.matches(".*@[a-zA-Z]{2,}$")) {
-                int split = value.lastIndexOf('@');
-                String val = value.substring(0, split);
-                String lang = value.substring(split + 1);
+
+            // Language-tagged: "value"@lang
+            int langIdx = rest.indexOf("\"@");
+            if (langIdx >= 0) {
+                String val = rest.substring(0, langIdx);
+                String lang = rest.substring(langIdx + 2);
                 return model.createLiteral(val, lang);
             }
-            // Plain literal
-            return model.createLiteral(value);
+
+            // Plain literal: "value"
+            if (rest.endsWith("\"")) {
+                return model.createLiteral(rest.substring(0, rest.length() - 1));
+            }
+
+            // Fallback — treat entire input as plain literal
+            return model.createLiteral(rest);
         }
     }
 }

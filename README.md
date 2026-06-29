@@ -62,6 +62,7 @@ CALL n20s.graph.drop('check');
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |
 | `n20s.graph.list()` | List all in-memory graphs with triple counts |
 | `n20s.graph.drop(name)` | Drop a named graph and free memory |
+| `n20s.version()` | Return n20s and Apache Jena versions |
 
 ### Reasoning Profiles
 
@@ -247,6 +248,16 @@ Triples ride along as cargo (via `HAS_TRIPLE` or `turtle` properties), invisible
 - **Ephemeral by design.** In-memory graphs are projected, used, and dropped — like GDS projections.
 - **No data model change required.** Your LPG stays as-is. RDF reasoning is a lens you project when needed.
 - **Forward or backward — your choice.** Materialize inferences for repeated queries, or reason lazily for one-shot queries.
+
+## Memory Usage
+
+n20s graphs are **heap-resident** Apache Jena models. Keep these guidelines in mind:
+
+- **Scope first.** Project only the triples you need — hundreds to low thousands, not millions. The "scope first, reason second" pattern keeps memory bounded.
+- **Forward chaining (`infer`) materializes triples.** RDFS on a 1k-triple graph is instant. OWL on a 100k-triple graph may produce millions of entailed triples and consume significant heap. Prefer backward chaining (`query(..., 'RDFS')`) for large graphs or one-shot queries.
+- **Drop when done.** Always call `n20s.graph.drop()` after use. In-memory graphs survive across transactions and are only freed on drop or Neo4j restart.
+- **Monitor with `n20s.graph.list()`.** Check triple counts to spot graphs that weren't cleaned up.
+- **Rough sizing.** A Jena triple consumes ~200-300 bytes of heap. 10k triples ≈ 2-3 MB. After RDFS inference, triple count may 5-10x. Plan heap accordingly (`-Xmx`).
 
 ## Requirements
 

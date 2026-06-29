@@ -5,6 +5,7 @@ import org.apache.jena.query.*;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.reasoner.ReasonerRegistry;
 import org.apache.jena.reasoner.Reasoner;
+import org.apache.jena.riot.RiotException;
 import org.apache.jena.shacl.ShaclValidator;
 import org.apache.jena.shacl.Shapes;
 import org.apache.jena.shacl.ValidationReport;
@@ -13,9 +14,27 @@ import org.neo4j.procedure.*;
 
 import java.util.*;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public class GraphProcedures {
+
+    // ── n20s.version() ──────────────────────────────────────────
+
+    public static class VersionResult {
+        public String version;
+        public String jenaVersion;
+
+        public VersionResult(String version, String jenaVersion) {
+            this.version = version;
+            this.jenaVersion = jenaVersion;
+        }
+    }
+
+    @Procedure(name = "n20s.version", mode = Mode.READ)
+    @Description("Return n20s plugin and Apache Jena versions.")
+    public Stream<VersionResult> version() {
+        String jenaVersion = org.apache.jena.Jena.VERSION;
+        return Stream.of(new VersionResult("0.1.0", jenaVersion));
+    }
 
     // ── n20s.graph.list() ─────────────────────────────────────
 
@@ -79,14 +98,7 @@ public class GraphProcedures {
 
         // If reasoning profile specified, wrap in InfModel for backward chaining
         if (reasoningProfile != null && !reasoningProfile.isEmpty()) {
-            Reasoner reasoner;
-            switch (reasoningProfile.toUpperCase()) {
-                case "RDFS": reasoner = ReasonerRegistry.getRDFSReasoner(); break;
-                case "OWL_MICRO": reasoner = ReasonerRegistry.getOWLMicroReasoner(); break;
-                case "OWL_MINI": reasoner = ReasonerRegistry.getOWLMiniReasoner(); break;
-                case "OWL": reasoner = ReasonerRegistry.getOWLReasoner(); break;
-                default: reasoner = ReasonerRegistry.getRDFSReasoner(); break;
-            }
+            Reasoner reasoner = resolveReasoner(reasoningProfile);
             model = ModelFactory.createInfModel(reasoner, model);
         }
 
@@ -111,6 +123,8 @@ public class GraphProcedures {
                 results.add(new QueryResult(row));
             }
             return results.stream();
+        } catch (QueryParseException e) {
+            throw new RuntimeException("Invalid SPARQL query: " + e.getMessage(), e);
         }
     }
 
@@ -149,6 +163,8 @@ public class GraphProcedures {
                 ));
             }
             return triples.stream();
+        } catch (QueryParseException e) {
+            throw new RuntimeException("Invalid SPARQL query: " + e.getMessage(), e);
         }
     }
 
@@ -179,24 +195,7 @@ public class GraphProcedures {
         Model model = GraphCatalog.get(name);
         long before = model.size();
 
-        Reasoner reasoner;
-        switch (profile.toUpperCase()) {
-            case "RDFS":
-                reasoner = ReasonerRegistry.getRDFSReasoner();
-                break;
-            case "OWL_MICRO":
-                reasoner = ReasonerRegistry.getOWLMicroReasoner();
-                break;
-            case "OWL_MINI":
-                reasoner = ReasonerRegistry.getOWLMiniReasoner();
-                break;
-            case "OWL":
-                reasoner = ReasonerRegistry.getOWLReasoner();
-                break;
-            default:
-                reasoner = ReasonerRegistry.getRDFSReasoner();
-                break;
-        }
+        Reasoner reasoner = resolveReasoner(profile);
 
         // Create inference model and replace the base model in the catalog
         InfModel infModel = ModelFactory.createInfModel(reasoner, model);
@@ -239,10 +238,13 @@ public class GraphProcedures {
         Model model = GraphCatalog.get(name);
         Graph dataGraph = model.getGraph();
 
-        // Parse SHACL shapes from the same model
-        Shapes shapes = Shapes.parse(dataGraph);
+        Shapes shapes;
+        try {
+            shapes = Shapes.parse(dataGraph);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse SHACL shapes: " + e.getMessage(), e);
+        }
 
-        // Validate
         ValidationReport report = ShaclValidator.get().validate(shapes, dataGraph);
 
         List<ValidationResult> results = new ArrayList<>();
@@ -301,8 +303,11 @@ public class GraphProcedures {
 
         long before = model.size();
 
-        // Parse Turtle string into the model
-        model.read(new java.io.StringReader(turtle), null, "TURTLE");
+        try {
+            model.read(new java.io.StringReader(turtle), null, "TURTLE");
+        } catch (RiotException e) {
+            throw new RuntimeException("Invalid Turtle syntax: " + e.getMessage(), e);
+        }
 
         if (!GraphCatalog.exists(name)) {
             GraphCatalog.put(name, model);
@@ -346,11 +351,33 @@ public class GraphProcedures {
 
     // ── Helpers ──────────────────────────────────────────────────
 
+    private static final Map<String, String> VALID_PROFILES = Map.of(
+            "RDFS", "RDFS",
+            "OWL_MICRO", "OWL_MICRO",
+            "OWL_MINI", "OWL_MINI",
+            "OWL", "OWL"
+    );
+
+    private static Reasoner resolveReasoner(String profile) {
+        String key = profile.toUpperCase();
+        if (!VALID_PROFILES.containsKey(key)) {
+            throw new RuntimeException("Unknown reasoning profile: '" + profile
+                    + "'. Valid profiles: RDFS, OWL_MICRO, OWL_MINI, OWL");
+        }
+        switch (key) {
+            case "RDFS":      return ReasonerRegistry.getRDFSReasoner();
+            case "OWL_MICRO": return ReasonerRegistry.getOWLMicroReasoner();
+            case "OWL_MINI":  return ReasonerRegistry.getOWLMiniReasoner();
+            case "OWL":       return ReasonerRegistry.getOWLReasoner();
+            default:          return ReasonerRegistry.getRDFSReasoner();
+        }
+    }
+
     /**
      * Convert a Jena Literal value to a Neo4j-compatible type.
      * Neo4j supports: Long, Double, Boolean, String.
      */
-    private static Object toLiteralValue(org.apache.jena.rdf.model.Literal lit) {
+    private static Object toLiteralValue(Literal lit) {
         Object val = lit.getValue();
         if (val instanceof Integer || val instanceof Long) {
             return ((Number) val).longValue();

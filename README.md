@@ -1,6 +1,6 @@
 # n20s — Neo4j In-Memory Semantics
 
-GDS-style in-memory RDF reasoning for Neo4j. Project scoped triples, run RDFS/OWL inference, validate with SHACL, query with SPARQL — all from Cypher.
+GDS-style in-memory RDF reasoning for Neo4j. Project scoped triples, run RDFS/OWL inference (forward or backward chaining), validate with SHACL, query with SPARQL — all from Cypher.
 
 ## The Idea
 
@@ -14,22 +14,19 @@ MATCH (:Patient {name: 'Alice'})-[:PRESCRIBED]->(:Drug)-[:HAS_TRIPLE]->(t:Triple
 WITH n20s.graph.project('check', t.s, t.p, t.o) AS g
 RETURN g.tripleCount;
 
-// 3. Reason: RDFS inference
-CALL n20s.graph.infer('check', 'RDFS');
-
-// 4. Query: SPARQL on the reasoned graph
+// 3. Query with backward chaining (RDFS reasoning on-the-fly)
 CALL n20s.graph.query('check', '
   SELECT ?drug1 ?drug2 ?risk WHERE {
     ?drug1 a ?c1 . ?drug2 a ?c2 .
     ?c1 <http://ex.org/interactsWith> ?c2 .
     ?c1 <http://ex.org/risk> ?risk .
-  }') YIELD row RETURN row;
+  }', 'RDFS') YIELD row RETURN row;
 
-// 5. Validate: SHACL shapes
+// 4. Validate: SHACL shapes (also projected in the graph)
 CALL n20s.graph.validate('check')
 YIELD focusNode, severity, message RETURN focusNode, severity, message;
 
-// 6. Cleanup
+// 5. Cleanup
 CALL n20s.graph.drop('check');
 ```
 
@@ -39,7 +36,8 @@ CALL n20s.graph.drop('check');
 |-----|------|
 | `gds.graph.project()` | `n20s.graph.project()` |
 | `gds.pageRank.stream()` | `n20s.graph.query()` (SPARQL) |
-| `gds.wcc.stream()` | `n20s.graph.infer()` (reasoning) |
+| `gds.wcc.stream()` | `n20s.graph.infer()` (forward chaining) |
+| — | `n20s.graph.query(..., 'RDFS')` (backward chaining) |
 | — | `n20s.graph.validate()` (SHACL) |
 | `gds.graph.drop()` | `n20s.graph.drop()` |
 
@@ -56,12 +54,64 @@ CALL n20s.graph.drop('check');
 | Procedure | Description |
 |---|---|
 | `n20s.graph.query(name, sparql)` | Run a SPARQL SELECT query |
+| `n20s.graph.query(name, sparql, profile)` | Run a SPARQL SELECT with backward-chaining inference (no `infer()` step needed) |
 | `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
-| `n20s.graph.infer(name, profile)` | Run inference. Profiles: `RDFS`, `OWL_MICRO`, `OWL_MINI`, `OWL` |
-| `n20s.graph.validate(name)` | Validate against SHACL shapes contained in the graph |
+| `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes all entailed triples |
+| `n20s.graph.validate(name)` | SHACL validation — shapes must be projected in the same graph |
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |
 | `n20s.graph.list()` | List all in-memory graphs with triple counts |
 | `n20s.graph.drop(name)` | Drop a named graph and free memory |
+
+### Reasoning Profiles
+
+Used by `infer()` and `query(..., profile)`:
+
+| Profile | Description |
+|---|---|
+| `RDFS` | RDFS entailment (subClassOf, domain, range, type propagation) |
+| `OWL_MICRO` | Minimal OWL (transitivity, symmetry, inverseOf) |
+| `OWL_MINI` | OWL with intersectionOf, unionOf |
+| `OWL` | Full OWL reasoning |
+
+### Forward vs Backward Chaining
+
+```cypher
+// FORWARD CHAINING: materialize all inferences, then query
+// Best for: multiple queries on the same projected graph
+CALL n20s.graph.infer('scope', 'RDFS');                    // step 1: materialize
+CALL n20s.graph.query('scope', 'SELECT ...');              // step 2: query
+CALL n20s.graph.query('scope', 'SELECT ... (another)');    // step 3: fast (already materialized)
+
+// BACKWARD CHAINING: reason on-the-fly during query
+// Best for: one-shot queries, simpler workflow
+CALL n20s.graph.query('scope', 'SELECT ...', 'RDFS');      // one step: reason + query
+```
+
+## SHACL Validation
+
+SHACL shapes are projected as regular triples alongside the data. The `validate()` procedure parses shapes from the graph and validates the data against them.
+
+Supports both property constraints and SPARQL-based constraints:
+
+```cypher
+// Project data + ontology + SHACL shapes
+CALL () {
+  MATCH (:Product)-[:CONTAINS*]->(:Ingredient)-[:HAS_TRIPLE]->(t) RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:Ontology) RETURN t.s AS s, t.p AS p, t.o AS o
+  UNION
+  MATCH (t:Triple:SHACLShape) RETURN t.s AS s, t.p AS p, t.o AS o
+}
+WITH n20s.graph.project('check', s, p, o) AS g RETURN g;
+
+// Validate — returns violations and warnings
+CALL n20s.graph.validate('check')
+YIELD focusNode, severity, message
+RETURN focusNode, severity, message;
+
+// → [Violation] Retinol — Retinoid incompatible with acid active agent
+// → [Warning] AscorbicAcid — Missing EU max concentration limit
+```
 
 ## Demos
 
@@ -78,15 +128,16 @@ LPG graph of patients, drugs, prescriptions. RDF triples encode drug classificat
 
 ### Cosmetics Regulation Impact Analysis
 
-Multi-level formulation BOM with `reduce()` for final concentrations. Detects:
+Multi-level formulation BOM with `reduce()` for final concentrations. Demonstrates:
 
-- **Regulation blast radius**: EU restricts Retinol above 0.05% → which products are affected?
 - **BOM concentration**: `reduce(conc, r IN rels | conc * r.ratio)` computes final % through phases and pre-mixes
+- **Regulation blast radius**: EU restricts Retinol above 0.05% → which products are affected?
 - **Substitution validation**: Is Bakuchiol a compliant Retinol alternative?
-- **Incompatibility detection**: Retinol + Vitamin C → retinoid degradation at low pH
+- **Forward chaining**: project → `infer('RDFS')` → `query()` (3 steps)
+- **Backward chaining**: project → `query(..., 'RDFS')` (2 steps, same result)
 - **SHACL validation**: SPARQL-based constraint detects Retinoid + Acid co-formulation
 
-5 products, 13 ingredients, 3 brands, 4 markets, SHACL shapes with SPARQL constraints.
+5 products, 13 ingredients, 3 brands, 4 markets.
 
 ### Browser Bookmarks
 
@@ -113,6 +164,7 @@ target/lib/jena-iri-4.10.0.jar
 target/lib/jena-shacl-4.10.0.jar
 target/lib/libthrift-0.19.0.jar
 target/lib/collection-0.7.jar
+target/lib/commons-collections4-4.4.jar
 ```
 
 ### Configure
@@ -140,7 +192,7 @@ Restart Neo4j.
 │  n20s In-Memory Graphs (ephemeral)             │
 │  ┌──────────────────────────────┐              │
 │  │  Jena Model (heap-resident)  │              │
-│  │  SPARQL · RDFS · SHACL       │              │
+│  │  SPARQL · RDFS/OWL · SHACL   │              │
 │  └──────────────────────────────┘              │
 └──────────────────────────────────────────────┘
 ```
@@ -155,6 +207,7 @@ The triples ride along as cargo via `HAS_TRIPLE`, invisible to normal Cypher que
 - **Triples are cargo, not structure.** `HAS_TRIPLE` attaches knowledge to LPG nodes without polluting the graph with edges you'd never traverse.
 - **Ephemeral by design.** In-memory graphs are projected, used, and dropped — like GDS projections.
 - **No data model change required.** Your LPG stays as-is. RDF reasoning is a lens you project when needed.
+- **Forward or backward — your choice.** Materialize inferences for repeated queries, or reason lazily for one-shot queries.
 
 ## Requirements
 

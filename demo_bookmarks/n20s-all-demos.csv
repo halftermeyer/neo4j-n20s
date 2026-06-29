@@ -344,30 +344,30 @@ CREATE
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:Retinol rdf:type cosmo:RetinoidAgent , cosmo:PhotosensitiveAgent",31,29,false
-"cosmo:maxConcentrationEU ""0.05""",,"cosmo:maxConcentrationEU """"0.05""""",32,29,false
-"cosmo:regulatoryRef ""EC 1223/2009 Annex III/98a"" .",,"cosmo:regulatoryRef """"EC 1223/2009 Annex III/98a"""" .
+    cosmo:Retinol rdf:type cosmo:RetinoidAgent , cosmo:PhotosensitiveAgent ;
+                  cosmo:maxConcentrationEU """"0.05"""" ;
+                  cosmo:regulatoryRef """"EC 1223/2009 Annex III/98a"""" .
   '}),
 (retinal:Ingredient {name: 'Retinal', cas: '116-31-4', inci: 'RETINAL',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:Retinal rdf:type cosmo:RetinoidAgent , cosmo:PhotosensitiveAgent",33,29,false
-"cosmo:maxConcentrationEU ""0.01"" .",,"cosmo:maxConcentrationEU """"0.01"""" .
+    cosmo:Retinal rdf:type cosmo:RetinoidAgent , cosmo:PhotosensitiveAgent ;
+                  cosmo:maxConcentrationEU """"0.01"""" .
   '}),
 (bakuchiol:Ingredient {name: 'Bakuchiol', cas: '10309-37-2', inci: 'BAKUCHIOL',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:Bakuchiol rdf:type cosmo:RetinoidAlternative , cosmo:PlantExtract",34,29,false
-cosmo:functionallyEquivalentTo cosmo:RetinoidAgent .,,"cosmo:functionallyEquivalentTo cosmo:RetinoidAgent .
+    cosmo:Bakuchiol rdf:type cosmo:RetinoidAlternative , cosmo:PlantExtract ;
+                    cosmo:functionallyEquivalentTo cosmo:RetinoidAgent .
   '}),
 (niacinamide:Ingredient {name: 'Niacinamide', cas: '98-92-0', inci: 'NIACINAMIDE',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:Niacinamide rdf:type cosmo:VitaminDerivative",35,29,false
-"cosmo:optimalPH ""6.0"" .",,"cosmo:optimalPH """"6.0"""" .
+    cosmo:Niacinamide rdf:type cosmo:VitaminDerivative ;
+                      cosmo:optimalPH """"6.0"""" .
   '}),
 (ha:Ingredient {name: 'Hyaluronic Acid', cas: '9004-61-9', inci: 'SODIUM HYALURONATE'}),
 (squalane:Ingredient {name: 'Squalane', cas: '111-01-3', inci: 'SQUALANE'}),
@@ -375,29 +375,29 @@ cosmo:functionallyEquivalentTo cosmo:RetinoidAgent .,,"cosmo:functionallyEquival
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:AscorbicAcid rdf:type cosmo:Antioxidant , cosmo:AcidActiveAgent",36,29,false
-"cosmo:optimalPH ""3.5"" .",,"cosmo:optimalPH """"3.5"""" .
+    cosmo:AscorbicAcid rdf:type cosmo:Antioxidant , cosmo:AcidActiveAgent ;
+                       cosmo:optimalPH """"3.5"""" .
   '}),
 (glycolicAcid:Ingredient {name: 'Glycolic Acid', cas: '79-14-1', inci: 'GLYCOLIC ACID',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:GlycolicAcid rdf:type cosmo:AHAExfoliant , cosmo:AcidActiveAgent",37,29,false
-"cosmo:maxConcentrationEU ""0.10"" .",,"cosmo:maxConcentrationEU """"0.10"""" .
+    cosmo:GlycolicAcid rdf:type cosmo:AHAExfoliant , cosmo:AcidActiveAgent ;
+                       cosmo:maxConcentrationEU """"0.10"""" .
   '}),
 (salicylicAcid:Ingredient {name: 'Salicylic Acid', cas: '69-72-7', inci: 'SALICYLIC ACID',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:SalicylicAcid rdf:type cosmo:BHAExfoliant",38,29,false
-"cosmo:maxConcentrationEU ""0.02"" .",,"cosmo:maxConcentrationEU """"0.02"""" .
+    cosmo:SalicylicAcid rdf:type cosmo:BHAExfoliant ;
+                        cosmo:maxConcentrationEU """"0.02"""" .
   '}),
 (tocopherol:Ingredient {name: 'Tocopherol', cas: '59-02-9', inci: 'TOCOPHEROL',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:Tocopherol rdf:type cosmo:Antioxidant",39,29,false
-cosmo:stabilizes cosmo:RetinoidAgent .,,"cosmo:stabilizes cosmo:RetinoidAgent .
+    cosmo:Tocopherol rdf:type cosmo:Antioxidant ;
+                     cosmo:stabilizes cosmo:RetinoidAgent .
   '}),
 (caprylic:Ingredient {name: 'Caprylic/Capric Triglyceride', cas: '65381-09-1', inci: 'CAPRYLIC/CAPRIC TRIGLYCERIDE'}),
 (water:Ingredient {name: 'Water', cas: '7732-18-5', inci: 'AQUA'}),
@@ -405,8 +405,8 @@ cosmo:stabilizes cosmo:RetinoidAgent .,,"cosmo:stabilizes cosmo:RetinoidAgent .
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-    cosmo:Phenoxyethanol rdf:type cosmo:Preservative",40,29,false
-Product 1: Luxe Anti-Aging Serum (Retinol 0.1%),,"cosmo:maxConcentrationEU """"0.01"""" .
+    cosmo:Phenoxyethanol rdf:type cosmo:Preservative ;
+                         cosmo:maxConcentrationEU """"0.01"""" .
   '}),
 
 // Substitutions
@@ -541,17 +541,17 @@ Product 1: Luxe Anti-Aging Serum (Retinol 0.1%),,"cosmo:maxConcentrationEU """"0
   cosmo:PlantExtract        rdfs:subClassOf cosmo:NaturalOrigin .
   cosmo:Preservative        rdfs:subClassOf cosmo:FunctionalIngredient .
 
-  cosmo:PhotosensitiveAgent cosmo:incompatibleWith cosmo:AHAExfoliant",41,29,false
-"cosmo:incompatibilityRisk ""Increased photosensitivity and ir",,"cosmo:incompatibilityRisk """"Increased photosensitivity and irritation""""",42,29,false
-"cosmo:incompatibilitySeverity ""high"" .",,"cosmo:incompatibilitySeverity """"high"""" .
+  cosmo:PhotosensitiveAgent cosmo:incompatibleWith cosmo:AHAExfoliant ;
+                            cosmo:incompatibilityRisk """"Increased photosensitivity and irritation"""" ;
+                            cosmo:incompatibilitySeverity """"high"""" .
 
-  cosmo:RetinoidAgent       cosmo:incompatibleWith cosmo:AcidActiveAgent",43,29,false
-"cosmo:incompatibilityRisk ""Retinoid degradation at low pH, i",,"cosmo:incompatibilityRisk """"Retinoid degradation at low pH, increased irritation""""",44,29,false
-"cosmo:incompatibilitySeverity ""medium"" .",,"cosmo:incompatibilitySeverity """"medium"""" .
+  cosmo:RetinoidAgent       cosmo:incompatibleWith cosmo:AcidActiveAgent ;
+                            cosmo:incompatibilityRisk """"Retinoid degradation at low pH, increased irritation"""" ;
+                            cosmo:incompatibilitySeverity """"medium"""" .
 
-  cosmo:AcidActiveAgent     cosmo:incompatibleWith cosmo:VitaminDerivative",45,29,false
-"cosmo:incompatibilityRisk ""Niacin flushing reaction at low p",,"cosmo:incompatibilityRisk """"Niacin flushing reaction at low pH""""",46,29,false
-SHACL Shapes: Turtle property on a dedicated node,,"cosmo:incompatibilitySeverity """"low"""" .
+  cosmo:AcidActiveAgent     cosmo:incompatibleWith cosmo:VitaminDerivative ;
+                            cosmo:incompatibilityRisk """"Niacin flushing reaction at low pH"""" ;
+                            cosmo:incompatibilitySeverity """"low"""" .
 '}),
 
 // ── SHACL Shapes: Turtle property on a dedicated node ────────
@@ -563,13 +563,13 @@ SHACL Shapes: Turtle property on a dedicated node,,"cosmo:incompatibilitySeverit
   @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
   @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-  cosmo:RetinoidAcidShape a sh:NodeShape",47,29,false
-sh:targetClass cosmo:RetinoidAgent,,sh:targetClass cosmo:RetinoidAgent,48,29,false
-sh:severity sh:Violation,,sh:severity sh:Violation,49,29,false
-sh:sparql [,,"sh:sparql [
-      a sh:SPARQLConstraint",50,29,false
-"sh:message ""Retinoid ingredient is incompatible with acid ac",,"sh:message """"Retinoid ingredient is incompatible with acid active agent in the same formulation""""",51,29,false
-"sh:select """"""",,"sh:select """"""""""""
+  cosmo:RetinoidAcidShape a sh:NodeShape ;
+    sh:targetClass cosmo:RetinoidAgent ;
+    sh:severity sh:Violation ;
+    sh:sparql [
+      a sh:SPARQLConstraint ;
+      sh:message """"Retinoid ingredient is incompatible with acid active agent in the same formulation"""" ;
+      sh:select """"""""""""
         SELECT $this WHERE {
           $this rdf:type/rdfs:subClassOf* cosmo:RetinoidAgent .
           ?formulation cosmo:containsIngredient $this .
@@ -580,15 +580,15 @@ sh:sparql [,,"sh:sparql [
       """"""""""""
     ] .
 
-  cosmo:ActiveIngredientShape a sh:NodeShape",52,29,false
-sh:targetClass cosmo:ActiveIngredient,,sh:targetClass cosmo:ActiveIngredient,53,29,false
-sh:property [,,"sh:property [
-      sh:path cosmo:maxConcentrationEU",54,29,false
-sh:minCount 1,,sh:minCount 1,55,29,false
-sh:severity sh:Warning,,sh:severity sh:Warning,56,29,false
-"sh:message ""Active ingredient missing EU max concentration l",,"sh:message """"Active ingredient missing EU max concentration limit — regulatory gap""""
+  cosmo:ActiveIngredientShape a sh:NodeShape ;
+    sh:targetClass cosmo:ActiveIngredient ;
+    sh:property [
+      sh:path cosmo:maxConcentrationEU ;
+      sh:minCount 1 ;
+      sh:severity sh:Warning ;
+      sh:message """"Active ingredient missing EU max concentration limit — regulatory gap""""
     ] .
-'})",57,29,false
+'})",31,29,false
 DEMO QUERIES,,"// ══════════════════════════════════════════════════════════════
 // ── DEMO QUERIES ─────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
@@ -603,7 +603,7 @@ MATCH path = (p:Product)-[:CONTAINS*]->(i:Ingredient {name: 'Retinol'})
 WITH p, i,
      round(reduce(conc = 1.0, r IN relationships(path) | conc * r.ratio) * 100, 4) AS pct
 RETURN p.name AS product, pct AS retinol_pct
-ORDER BY pct DESC",58,29,false
+ORDER BY pct DESC",32,29,false
 Demo 2: Regulation blast radius,,"// ── Demo 2: Regulation blast radius ──────────────────────────
 //
 // """"EU restricts Retinol above 0.05% — which products are affected?""""
@@ -618,7 +618,7 @@ RETURN b.name AS brand, p.name AS product, p.sku AS sku,
        round(finalConc * 100, 4) AS retinol_pct,
        0.05 AS eu_limit_pct,
        'NON-COMPLIANT' AS status
-ORDER BY finalConc DESC",59,29,false
+ORDER BY finalConc DESC",33,29,false
 Demo 3: Substitution candidates,,"// ── Demo 3: Substitution candidates ──────────────────────────
 //
 // """"What can replace Retinol? Who supplies it?""""
@@ -627,7 +627,7 @@ MATCH (retinol:Ingredient {name: 'Retinol'})<-[sf:SUBSTITUTE_FOR]-(alt:Ingredien
 OPTIONAL MATCH (sup:Supplier)-[:SUPPLIES]->(alt)
 RETURN alt.name AS substitute, alt.inci AS inci,
        sf.reason AS reason,
-       collect(sup.name) AS suppliers",60,29,false
+       collect(sup.name) AS suppliers",34,29,false
 Demo 4a: Project Retinol Booster via Turtle properties,,"// ══════════════════════════════════════════════════════════════
 // FORWARD CHAINING — materialize inferences, then query
 // project ingredient Turtle + ontology Turtle → infer → query
@@ -650,12 +650,12 @@ WITH ingredientTurtles + [p.turtle, ontTurtle] AS allTurtles
 UNWIND allTurtles AS t
 CALL n20s.graph.addTurtle('forward_check', t)
 YIELD graphName, added
-RETURN graphName, sum(added) AS totalTriples",61,29,false
+RETURN graphName, sum(added) AS totalTriples",35,29,false
 Demo 4b: Forward chaining — materialize all RDFS inferences,,"// ── Demo 4b: Forward chaining — materialize all RDFS inferences ─
 
 CALL n20s.graph.infer('forward_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
-RETURN triplesBefore, triplesAfter, newTriples",62,29,false
+RETURN triplesBefore, triplesAfter, newTriples",36,29,false
 Demo 4c: Query the materialized graph,,"// ── Demo 4c: Query the materialized graph ────────────────────
 
 CALL n20s.graph.query('forward_check', '
@@ -671,10 +671,10 @@ CALL n20s.graph.query('forward_check', '
     FILTER(?ing1 != ?ing2)
   }
 ') YIELD row
-RETURN row",63,29,false
+RETURN row",37,29,false
 Demo 4d: Cleanup forward check,,"// ── Demo 4d: Cleanup forward check ───────────────────────────
 
-CALL n20s.graph.drop('forward_check')",64,29,false
+CALL n20s.graph.drop('forward_check')",38,29,false
 Demo 5a: Project via Turtle (same scoping as Demo 4a),,"// ══════════════════════════════════════════════════════════════
 // BACKWARD CHAINING — reason on-the-fly during query
 // project Turtle → query with 'RDFS' (no materialization)
@@ -691,7 +691,7 @@ WITH ingredientTurtles + [p.turtle, ont.turtle] AS allTurtles
 UNWIND allTurtles AS t
 CALL n20s.graph.addTurtle('backward_check', t)
 YIELD graphName, added
-RETURN graphName, sum(added) AS totalTriples",65,29,false
+RETURN graphName, sum(added) AS totalTriples",39,29,false
 Demo 5b: Query with backward chaining — no infer() needed,,"// ── Demo 5b: Query with backward chaining — no infer() needed ─
 
 CALL n20s.graph.query('backward_check', '
@@ -707,7 +707,7 @@ CALL n20s.graph.query('backward_check', '
     FILTER(?ing1 != ?ing2)
   }
 ', 'RDFS') YIELD row
-RETURN row",66,29,false
+RETURN row",40,29,false
 Demo 5c: Check EU limits (no reasoning needed),,"// ── Demo 5c: Check EU limits (no reasoning needed) ───────────
 
 CALL n20s.graph.query('backward_check', '
@@ -716,10 +716,10 @@ CALL n20s.graph.query('backward_check', '
     ?ingredient cosmo:maxConcentrationEU ?limit .
   }
 ') YIELD row
-RETURN row",67,29,false
+RETURN row",41,29,false
 Demo 5d: Cleanup backward check,,"// ── Demo 5d: Cleanup backward check ──────────────────────────
 
-CALL n20s.graph.drop('backward_check')",68,29,false
+CALL n20s.graph.drop('backward_check')",42,29,false
 Demo 6a: Project ingredients + ontology + SHACL shapes,,"// ══════════════════════════════════════════════════════════════
 // SHACL VALIDATION — shapes from Turtle property
 // ══════════════════════════════════════════════════════════════
@@ -738,15 +738,15 @@ WITH ingredientTurtles + [p.turtle, ont.turtle, sh.turtle] AS allTurtles
 UNWIND allTurtles AS t
 CALL n20s.graph.addTurtle('shacl_check', t)
 YIELD graphName, added
-RETURN graphName, sum(added) AS totalTriples",69,29,false
+RETURN graphName, sum(added) AS totalTriples",43,29,false
 Demo 6b: SHACL Validate,,"// ── Demo 6b: SHACL Validate ──────────────────────────────────
 
 CALL n20s.graph.validate('shacl_check')
 YIELD focusNode, severity, message
-RETURN focusNode, severity, message",70,29,false
+RETURN focusNode, severity, message",44,29,false
 Demo 6c: Cleanup SHACL check,,"// ── Demo 6c: Cleanup SHACL check ─────────────────────────────
 
-CALL n20s.graph.drop('shacl_check')",71,29,false
+CALL n20s.graph.drop('shacl_check')",45,29,false
 Demo 7: Full portfolio risk scan,,"// ══════════════════════════════════════════════════════════════
 // FULL PORTFOLIO RISK SCAN (pure Cypher, no n20s)
 // ══════════════════════════════════════════════════════════════
@@ -768,4 +768,4 @@ RETURN b.name AS brand, p.name AS product,
          WHEN retinolConc > 0 THEN 'COMPLIANT'
          ELSE 'NO RETINOL'
        END AS eu_status
-ORDER BY retinolConc DESC",72,29,false
+ORDER BY retinolConc DESC",46,29,false

@@ -186,21 +186,22 @@ Import `demo_bookmarks/n20s-all-demos.csv` in Neo4j Browser (Saved Queries → I
 
 ## Install
 
+### Pre-built release (recommended)
+
+Download the latest fat JAR from [GitHub Releases](https://github.com/halftermeyer/neo4j-n20s/releases) and copy it to your Neo4j `plugins/` directory:
+
+```bash
+cp n20s-plugin-*.jar $NEO4J_HOME/plugins/
+```
+
 ### Build from source
 
 ```bash
 mvn clean package -DskipTests
+cp target/n20s-plugin-*.jar $NEO4J_HOME/plugins/
 ```
 
-### Deploy
-
-Copy the single fat JAR to your Neo4j `plugins/` directory:
-
-```bash
-cp target/n20s-plugin-1.0.0-SNAPSHOT.jar $NEO4J_HOME/plugins/
-```
-
-All dependencies (Apache Jena, SHACL, etc.) are bundled and relocated to avoid classpath conflicts.
+All dependencies (Apache Jena, SHACL, etc.) are bundled in a single fat JAR and relocated to avoid classpath conflicts.
 
 ### Configure
 

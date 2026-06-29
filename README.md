@@ -71,10 +71,12 @@ Used by `infer()` and `query(..., profile)`:
 
 | Profile | Description |
 |---|---|
-| `RDFS` | RDFS entailment (subClassOf, domain, range, type propagation) |
-| `OWL_MICRO` | Minimal OWL (transitivity, symmetry, inverseOf) |
-| `OWL_MINI` | OWL with intersectionOf, unionOf |
-| `OWL` | Full OWL reasoning |
+| `RDFS` | RDFS entailment (subClassOf, subPropertyOf, domain, range, type propagation) |
+| `OWL_MICRO` | RDFS + TransitiveProperty, SymmetricProperty, inverseOf |
+| `OWL_MINI` | OWL_MICRO + intersectionOf, unionOf, hasValue |
+| `OWL` | Jena's rule-based OWL reasoner (broader OWL coverage, not full OWL DL) |
+
+All profiles use Apache Jena's built-in rule-based reasoners (forward/backward chaining). These are not tableaux reasoners — they don't support full OWL DL (e.g., no cardinality reasoning, no negation). For most knowledge graph use cases (class hierarchies, transitivity, property inheritance), they are more than sufficient.
 
 ### Forward vs Backward Chaining
 

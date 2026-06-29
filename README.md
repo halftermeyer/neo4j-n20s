@@ -268,7 +268,7 @@ n20s graphs are **heap-resident** Apache Jena models. Keep these guidelines in m
 
 - Neo4j 5.x / 2025.x / 2026.x
 - Java 17+
-- Apache Jena 4.10 (bundled)
+- Apache Jena 6.1 (bundled)
 
 ## License
 

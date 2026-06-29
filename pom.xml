@@ -20,7 +20,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <neo4j.version>2026.05.0</neo4j.version>
-        <jena.version>4.10.0</jena.version>
+        <jena.version>6.1.0</jena.version>
     </properties>
 
     <dependencies>

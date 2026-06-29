@@ -5,6 +5,8 @@ import org.apache.jena.query.*;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.reasoner.ReasonerRegistry;
 import org.apache.jena.reasoner.Reasoner;
+import org.apache.jena.reasoner.rulesys.GenericRuleReasoner;
+import org.apache.jena.reasoner.rulesys.Rule;
 import org.apache.jena.riot.RiotException;
 import org.apache.jena.shacl.ShaclValidator;
 import org.apache.jena.shacl.Shapes;
@@ -208,6 +210,45 @@ public class GraphProcedures {
         long after = materialized.size();
 
         return Stream.of(new InferResult(name, before, after, profile.toUpperCase()));
+    }
+
+    // ── n20s.graph.inferWithRules() ────────────────────────────
+
+    @Procedure(name = "n20s.graph.inferWithRules", mode = Mode.READ)
+    @Description("Run custom rule-based inference on a named in-memory RDF graph using Jena rule syntax. " +
+            "Materializes inferred triples. Example rule: " +
+            "[name: (?x rdf:type ex:A) (?x ex:prop ?y) -> (?x rdf:type ex:B)]")
+    public Stream<InferResult> inferWithRules(
+            @Name("name") String name,
+            @Name("rules") String rules) {
+
+        Model model = GraphCatalog.get(name);
+        long before = model.size();
+
+        List<Rule> ruleList;
+        try {
+            ruleList = Rule.parseRules(rules);
+        } catch (Rule.ParserException e) {
+            throw new RuntimeException("Invalid rule syntax: " + e.getMessage(), e);
+        }
+
+        if (ruleList.isEmpty()) {
+            throw new RuntimeException("No rules parsed. Jena rule format: [name: (?x p ?y) -> (?x q ?y)]");
+        }
+
+        GenericRuleReasoner reasoner = new GenericRuleReasoner(ruleList);
+        reasoner.setOWLTranslation(false);
+        reasoner.setTransitiveClosureCaching(false);
+
+        InfModel infModel = ModelFactory.createInfModel(reasoner, model);
+        Model materialized = ModelFactory.createDefaultModel();
+        materialized.add(infModel.listStatements());
+        infModel.close();
+
+        GraphCatalog.put(name, materialized);
+        long after = materialized.size();
+
+        return Stream.of(new InferResult(name, before, after, "CUSTOM (" + ruleList.size() + " rules)"));
     }
 
     // ── n20s.graph.validate() ────────────────────────────────

@@ -224,6 +224,105 @@ class N20sTest {
         }
     }
 
+    // ── inferWithRules (custom Jena rules) ────────────────────
+
+    @Test
+    void testInferWithRules_basic() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('rules_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                    ex:Athena a ex:God .
+                    ex:Hercules a ex:Hero .
+                ')
+                """);
+        }
+
+        // Custom rule: Gods and Heroes are both Beings
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.inferWithRules('rules_test', '
+                    [godToBeing: (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/God)
+                        -> (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Being)]
+                    [heroToBeing: (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Hero)
+                        -> (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Being)]
+                ')
+                YIELD newTriples, profile
+                RETURN newTriples, profile
+                """);
+
+            var record = result.single();
+            assertTrue(record.get("newTriples").asLong() >= 3, "Should infer 3 new Being triples");
+            assertTrue(record.get("profile").asString().contains("2 rules"));
+        }
+
+        // Verify all three are now Beings
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('rules_test',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Being> }')
+                YIELD row RETURN row
+                """);
+            assertEquals(3, result.list().size());
+        }
+    }
+
+    @Test
+    void testInferWithRules_withBuiltins() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('builtin_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+                    ex:Alice a ex:Person ; ex:age 25 .
+                    ex:Bob a ex:Person ; ex:age 15 .
+                ')
+                """);
+        }
+
+        // Rule with greaterThan builtin: age > 17 → Adult
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.inferWithRules('builtin_test', '
+                    [adult: (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Person)
+                            (?x http://ex.org/age ?age)
+                            greaterThan(?age, 17)
+                        -> (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Adult)]
+                ')
+                """);
+        }
+
+        // Only Alice should be an Adult
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('builtin_test',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Adult> }')
+                YIELD row RETURN row
+                """);
+            var rows = result.list();
+            assertEquals(1, rows.size());
+            assertTrue(rows.get(0).get("row").asMap().get("x").toString().contains("Alice"));
+        }
+    }
+
+    @Test
+    void testInferWithRules_invalidSyntax() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('bad_rules', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            assertThrows(Exception.class, () ->
+                    session.run("CALL n20s.graph.inferWithRules('bad_rules', 'not valid rule syntax!!!') YIELD newTriples RETURN newTriples").list());
+        }
+    }
+
     // ── backward chaining ───────────────────────────────────────
 
     @Test

@@ -58,6 +58,7 @@ CALL n20s.graph.drop('check');
 | `n20s.graph.query(name, sparql, profile)` | Run a SPARQL SELECT with backward-chaining inference (no `infer()` step needed) |
 | `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
 | `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes all entailed triples |
+| `n20s.graph.inferWithRules(name, rules)` | Custom rule-based inference using Jena rule syntax |
 | `n20s.graph.validate(name)` | SHACL validation — shapes must be projected in the same graph |
 | `n20s.graph.toTurtle(name)` | Serialize a named graph as a Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |
@@ -91,6 +92,28 @@ CALL n20s.graph.query('scope', 'SELECT ... (another)');    // step 3: fast (alre
 // Best for: one-shot queries, simpler workflow
 CALL n20s.graph.query('scope', 'SELECT ...', 'RDFS');      // one step: reason + query
 ```
+
+## Custom Rules
+
+Beyond the built-in RDFS/OWL profiles, `inferWithRules()` lets you define domain-specific inference rules using [Jena's rule syntax](https://jena.apache.org/documentation/inference/#rules):
+
+```cypher
+CALL n20s.graph.inferWithRules('check', '
+    [retinoidConflict:
+        (?x rdf:type http://ex.org/cosmo#RetinoidAgent)
+        (?y rdf:type http://ex.org/cosmo#AcidActiveAgent)
+        notEqual(?x, ?y)
+        -> (?x http://ex.org/cosmo#conflictsWith ?y)]
+    [adultRule:
+        (?p rdf:type http://ex.org/Person)
+        (?p http://ex.org/age ?age)
+        greaterThan(?age, 17)
+        -> (?p rdf:type http://ex.org/Adult)]
+')
+YIELD newTriples RETURN newTriples;
+```
+
+Rules support Jena's built-in predicates: `greaterThan`, `lessThan`, `sum`, `product`, `notEqual`, `strConcat`, `regex`, and [many more](https://jena.apache.org/documentation/inference/#builtin-primitives). Inferred triples are materialized into the graph, just like `infer()`.
 
 ## Triples as Cargo
 

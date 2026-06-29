@@ -273,6 +273,45 @@ public class GraphProcedures {
         return results.stream();
     }
 
+    // ── n20s.graph.addTurtle() ─────────────────────────────────
+
+    public static class AddTurtleResult {
+        public String graphName;
+        public long triplesBefore;
+        public long triplesAfter;
+        public long added;
+
+        public AddTurtleResult(String name, long before, long after) {
+            this.graphName = name;
+            this.triplesBefore = before;
+            this.triplesAfter = after;
+            this.added = after - before;
+        }
+    }
+
+    @Procedure(name = "n20s.graph.addTurtle", mode = Mode.READ)
+    @Description("Parse a Turtle string and add its triples to a named in-memory RDF graph. Creates the graph if it doesn't exist.")
+    public Stream<AddTurtleResult> addTurtle(
+            @Name("name") String name,
+            @Name("turtle") String turtle) {
+
+        Model model = GraphCatalog.exists(name)
+                ? GraphCatalog.get(name)
+                : ModelFactory.createDefaultModel();
+
+        long before = model.size();
+
+        // Parse Turtle string into the model
+        model.read(new java.io.StringReader(turtle), null, "TURTLE");
+
+        if (!GraphCatalog.exists(name)) {
+            GraphCatalog.put(name, model);
+        }
+
+        long after = model.size();
+        return Stream.of(new AddTurtleResult(name, before, after));
+    }
+
     // ── n20s.graph.triples() ──────────────────────────────────
 
     @Procedure(name = "n20s.graph.triples", mode = Mode.READ)

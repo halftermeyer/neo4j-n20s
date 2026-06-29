@@ -323,6 +323,78 @@ class N20sTest {
         }
     }
 
+    // ── queryWithRules (backward chaining on custom rules) ────
+
+    @Test
+    void testQueryWithRules() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('qr_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                    ex:Athena a ex:God .
+                    ex:Hercules a ex:Hero .
+                ')
+                """);
+        }
+
+        // Query with custom rule — backward chaining, no materialization
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.queryWithRules('qr_test',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Being> }',
+                    '
+                    [godBeing: (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/God)
+                        -> (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Being)]
+                    [heroBeing: (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Hero)
+                        -> (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Being)]
+                    ')
+                YIELD row RETURN row
+                """);
+
+            assertEquals(3, result.list().size(), "All three should be inferred as Beings");
+        }
+
+        // Verify base model was NOT modified
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.triples('qr_test')
+                YIELD subject RETURN count(*) AS cnt
+                """);
+            assertEquals(3, result.single().get("cnt").asLong(),
+                    "queryWithRules should not add triples to the base model");
+        }
+    }
+
+    @Test
+    void testQueryWithRules_withBuiltins() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('qr_builtin', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Alice a ex:Person ; ex:age 25 .
+                    ex:Bob a ex:Person ; ex:age 15 .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.queryWithRules('qr_builtin',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Adult> }',
+                    '[adult: (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Person)
+                             (?x http://ex.org/age ?a)
+                             greaterThan(?a, 17)
+                         -> (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://ex.org/Adult)]')
+                YIELD row RETURN row
+                """);
+
+            var rows = result.list();
+            assertEquals(1, rows.size());
+            assertTrue(rows.get(0).get("row").asMap().get("x").toString().contains("Alice"));
+        }
+    }
+
     // ── backward chaining ───────────────────────────────────────
 
     @Test

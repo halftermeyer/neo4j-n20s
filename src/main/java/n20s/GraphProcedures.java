@@ -130,6 +130,58 @@ public class GraphProcedures {
         }
     }
 
+    // ── n20s.graph.queryWithRules() ────────────────────────────
+
+    @Procedure(name = "n20s.graph.queryWithRules", mode = Mode.READ)
+    @Description("Run a SPARQL SELECT query with custom Jena rules applied via backward chaining (no materialization). " +
+            "Rules use Jena rule syntax: [name: (?x p ?y) -> (?x q ?y)]")
+    public Stream<QueryResult> queryWithRules(
+            @Name("name") String name,
+            @Name("sparql") String sparql,
+            @Name("rules") String rules) {
+
+        Model model = GraphCatalog.get(name);
+
+        List<Rule> ruleList;
+        try {
+            ruleList = Rule.parseRules(rules);
+        } catch (Rule.ParserException e) {
+            throw new RuntimeException("Invalid rule syntax: " + e.getMessage(), e);
+        }
+
+        if (ruleList.isEmpty()) {
+            throw new RuntimeException("No rules parsed. Jena rule format: [name: (?x p ?y) -> (?x q ?y)]");
+        }
+
+        GenericRuleReasoner reasoner = new GenericRuleReasoner(ruleList);
+        Model infModel = ModelFactory.createInfModel(reasoner, model);
+
+        try (QueryExecution qe = QueryExecutionFactory.create(sparql, infModel)) {
+            ResultSet rs = qe.execSelect();
+            List<QueryResult> results = new ArrayList<>();
+            List<String> vars = rs.getResultVars();
+
+            while (rs.hasNext()) {
+                QuerySolution sol = rs.next();
+                Map<String, Object> row = new LinkedHashMap<>();
+                for (String var : vars) {
+                    RDFNode node = sol.get(var);
+                    if (node == null) {
+                        row.put(var, null);
+                    } else if (node.isLiteral()) {
+                        row.put(var, toLiteralValue(node.asLiteral()));
+                    } else {
+                        row.put(var, node.toString());
+                    }
+                }
+                results.add(new QueryResult(row));
+            }
+            return results.stream();
+        } catch (QueryParseException e) {
+            throw new RuntimeException("Invalid SPARQL query: " + e.getMessage(), e);
+        }
+    }
+
     // ── n20s.graph.construct() ─────────────────────────────────
 
     public static class TripleResult {

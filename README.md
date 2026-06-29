@@ -58,7 +58,8 @@ CALL n20s.graph.drop('check');
 | `n20s.graph.query(name, sparql, profile)` | Run a SPARQL SELECT with backward-chaining inference (no `infer()` step needed) |
 | `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
 | `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes all entailed triples |
-| `n20s.graph.inferWithRules(name, rules)` | Custom rule-based inference using Jena rule syntax |
+| `n20s.graph.inferWithRules(name, rules)` | Custom rule-based inference (forward chaining, materializes) |
+| `n20s.graph.queryWithRules(name, sparql, rules)` | SPARQL query with custom rules (backward chaining, no materialization) |
 | `n20s.graph.validate(name)` | SHACL validation — shapes must be projected in the same graph |
 | `n20s.graph.toTurtle(name)` | Serialize a named graph as a Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |
@@ -113,7 +114,18 @@ CALL n20s.graph.inferWithRules('check', '
 YIELD newTriples RETURN newTriples;
 ```
 
-Rules support Jena's built-in predicates: `greaterThan`, `lessThan`, `sum`, `product`, `notEqual`, `strConcat`, `regex`, and [many more](https://jena.apache.org/documentation/inference/#builtin-primitives). Inferred triples are materialized into the graph, just like `infer()`.
+Rules support Jena's built-in predicates: `greaterThan`, `lessThan`, `sum`, `product`, `notEqual`, `strConcat`, `regex`, and [many more](https://jena.apache.org/documentation/inference/#builtin-primitives).
+
+Like the built-in profiles, custom rules support both forward and backward chaining:
+
+```cypher
+// FORWARD: materialize, then query
+CALL n20s.graph.inferWithRules('g', '[rule: ...] [rule: ...]');
+CALL n20s.graph.query('g', 'SELECT ...');
+
+// BACKWARD: reason on-the-fly, no materialization
+CALL n20s.graph.queryWithRules('g', 'SELECT ...', '[rule: ...] [rule: ...]');
+```
 
 ## Triples as Cargo
 

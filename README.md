@@ -58,8 +58,8 @@ CALL n20s.graph.drop('check');
 | `n20s.graph.query(name, sparql, profile)` | Run a SPARQL SELECT with backward-chaining inference (no `infer()` step needed) |
 | `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
 | `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes all entailed triples |
-| `n20s.graph.inferWithRules(name, rules)` | Custom rule-based inference (forward chaining, materializes) |
-| `n20s.graph.queryWithRules(name, sparql, rules)` | SPARQL query with custom rules (backward chaining, no materialization) |
+| `n20s.graph.inferWithRules(name, rules, [profile])` | Custom rule-based inference (forward chaining, materializes). Optional profile layers RDFS/OWL underneath. |
+| `n20s.graph.queryWithRules(name, sparql, rules, [profile])` | SPARQL query with custom rules (backward chaining, no materialization). Optional profile layers RDFS/OWL underneath. |
 | `n20s.graph.validate(name)` | SHACL validation — shapes must be projected in the same graph |
 | `n20s.graph.toTurtle(name)` | Serialize a named graph as a Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |

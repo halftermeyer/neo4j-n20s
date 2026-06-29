@@ -96,7 +96,7 @@ CALL n20s.graph.query('scope', 'SELECT ...', 'RDFS');      // one step: reason +
 
 ## Custom Rules
 
-Beyond the built-in RDFS/OWL profiles, `inferWithRules()` lets you define domain-specific inference rules using [Jena's rule syntax](https://jena.apache.org/documentation/inference/#rules):
+Beyond the built-in RDFS/OWL profiles, `inferWithRules()` and `queryWithRules()` let you define domain-specific inference rules using [Jena's rule syntax](https://jena.apache.org/documentation/inference/#rules). Rules use full URIs (or the built-in `rdf:type` shorthand) and support [Jena built-in predicates](https://jena.apache.org/documentation/inference/#builtin-primitives):
 
 ```cypher
 CALL n20s.graph.inferWithRules('check', '
@@ -113,8 +113,6 @@ CALL n20s.graph.inferWithRules('check', '
 ')
 YIELD newTriples RETURN newTriples;
 ```
-
-Rules support Jena's built-in predicates: `greaterThan`, `lessThan`, `sum`, `product`, `notEqual`, `strConcat`, `regex`, and [many more](https://jena.apache.org/documentation/inference/#builtin-primitives).
 
 Like the built-in profiles, custom rules support both forward and backward chaining:
 

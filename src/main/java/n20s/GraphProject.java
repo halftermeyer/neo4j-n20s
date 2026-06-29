@@ -51,11 +51,20 @@ public class GraphProject {
 
             RDFNode object;
             if (o.startsWith("\"")) {
-                // Strip the leading " before parsing — our convention
-                // is that literals start with " in the (s,p,o) model
-                String stripped = o.substring(1);
+                // Strip outer quotes from our (s,p,o) literal convention.
+                // Formats: "value"  or  "value"@en  or  "value"^^<datatype>
+                // Strip leading " always, trailing " only if it's the final char
+                // or right before @lang or ^^<datatype>
+                String stripped = o.substring(1); // remove leading "
                 if (stripped.endsWith("\"")) {
+                    // Plain literal: "value" → value
                     stripped = stripped.substring(0, stripped.length() - 1);
+                } else if (stripped.contains("\"^^<")) {
+                    // Typed: value"^^<dt> → value^^<dt>
+                    stripped = stripped.replace("\"^^<", "^^<");
+                } else if (stripped.contains("\"@")) {
+                    // Lang-tagged: value"@en → value@en
+                    stripped = stripped.replace("\"@", "@");
                 }
                 object = parseLiteral(model, stripped);
             } else if (o.startsWith("_:")) {

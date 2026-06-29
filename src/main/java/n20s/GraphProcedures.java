@@ -103,7 +103,7 @@ public class GraphProcedures {
                     if (node == null) {
                         row.put(var, null);
                     } else if (node.isLiteral()) {
-                        row.put(var, node.asLiteral().getValue());
+                        row.put(var, toLiteralValue(node.asLiteral()));
                     } else {
                         row.put(var, node.toString());
                     }
@@ -342,5 +342,30 @@ public class GraphProcedures {
             ));
         }
         return results.stream();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────
+
+    /**
+     * Convert a Jena Literal value to a Neo4j-compatible type.
+     * Neo4j supports: Long, Double, Boolean, String.
+     */
+    private static Object toLiteralValue(org.apache.jena.rdf.model.Literal lit) {
+        Object val = lit.getValue();
+        if (val instanceof Integer || val instanceof Long) {
+            return ((Number) val).longValue();
+        } else if (val instanceof Float || val instanceof Double) {
+            return ((Number) val).doubleValue();
+        } else if (val instanceof java.math.BigDecimal) {
+            return ((java.math.BigDecimal) val).doubleValue();
+        } else if (val instanceof java.math.BigInteger) {
+            return ((java.math.BigInteger) val).longValue();
+        } else if (val instanceof Boolean) {
+            return val;
+        } else if (val instanceof Number) {
+            return ((Number) val).doubleValue();
+        } else {
+            return val.toString();
+        }
     }
 }

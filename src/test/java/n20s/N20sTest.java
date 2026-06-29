@@ -35,10 +35,11 @@ class N20sTest {
         GraphCatalog.list().forEach(GraphCatalog::drop);
     }
 
+    // ── project + query ─────────────────────────────────────────
+
     @Test
     void testProjectAndQuery() {
         try (Session session = driver.session()) {
-            // Project some triples
             var result = session.run("""
                 UNWIND [
                     {s: 'http://ex.org/Zeus', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://ex.org/God'},
@@ -56,7 +57,6 @@ class N20sTest {
             assertEquals(5, record.get("count").asLong());
         }
 
-        // Query with SPARQL
         try (Session session = driver.session()) {
             var result = session.run("""
                 CALL n20s.graph.query('test',
@@ -65,38 +65,117 @@ class N20sTest {
                 RETURN row
                 """);
 
-            var rows = result.list();
-            assertEquals(2, rows.size()); // Zeus and Athena
+            assertEquals(2, result.list().size());
+        }
+    }
+
+    // ── addTurtle ───────────────────────────────────────────────
+
+    @Test
+    void testAddTurtle_createsGraph() {
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.addTurtle('turtle_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                    ex:Athena a ex:God .
+                    ex:God <http://www.w3.org/2000/01/rdf-schema#subClassOf> ex:Being .
+                ')
+                YIELD graphName, triplesBefore, triplesAfter, added
+                RETURN graphName, triplesBefore, triplesAfter, added
+                """);
+
+            var record = result.single();
+            assertEquals("turtle_test", record.get("graphName").asString());
+            assertEquals(0, record.get("triplesBefore").asLong());
+            assertEquals(3, record.get("triplesAfter").asLong());
+            assertEquals(3, record.get("added").asLong());
         }
     }
 
     @Test
-    void testInfer() {
+    void testAddTurtle_incrementalAdd() {
         try (Session session = driver.session()) {
             session.run("""
-                UNWIND [
-                    {s: 'http://ex.org/Zeus', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://ex.org/God'},
-                    {s: 'http://ex.org/God', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://ex.org/Being'}
-                ] AS t
-                WITH n20s.graph.project('infer_test', t.s, t.p, t.o) AS g
-                RETURN g
+                CALL n20s.graph.addTurtle('incr_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                ')
                 """);
         }
 
-        // Run RDFS inference
         try (Session session = driver.session()) {
             var result = session.run("""
-                CALL n20s.graph.infer('infer_test', 'RDFS')
-                YIELD graphName, triplesBefore, triplesAfter, newTriples
-                RETURN graphName, triplesBefore, triplesAfter, newTriples
+                CALL n20s.graph.addTurtle('incr_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Athena a ex:God .
+                    ex:Hercules a ex:Hero .
+                ')
+                YIELD triplesBefore, triplesAfter, added
+                RETURN triplesBefore, triplesAfter, added
                 """);
 
             var record = result.single();
-            assertEquals("infer_test", record.get("graphName").asString());
-            assertTrue(record.get("newTriples").asLong() > 0, "RDFS should infer new triples");
+            assertEquals(1, record.get("triplesBefore").asLong());
+            assertEquals(3, record.get("triplesAfter").asLong());
+            assertEquals(2, record.get("added").asLong());
+        }
+    }
+
+    @Test
+    void testAddTurtle_typedLiterals() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('literal_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+                    ex:Retinol ex:maxConcentration "0.05"^^xsd:decimal ;
+                              ex:name "Retinol"@en .
+                ')
+                """);
         }
 
-        // Verify Zeus is now also a Being
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('literal_test',
+                    'SELECT ?val WHERE { <http://ex.org/Retinol> <http://ex.org/maxConcentration> ?val }')
+                YIELD row
+                RETURN row
+                """);
+
+            var rows = result.list();
+            assertEquals(1, rows.size());
+        }
+    }
+
+    // ── infer (forward chaining) ────────────────────────────────
+
+    @Test
+    void testInfer_rdfsSubClassOf() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('infer_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                    ex:Zeus a ex:God .
+                    ex:God rdfs:subClassOf ex:Being .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.infer('infer_test', 'RDFS')
+                YIELD triplesBefore, triplesAfter, newTriples
+                RETURN triplesBefore, triplesAfter, newTriples
+                """);
+
+            var record = result.single();
+            assertEquals(2, record.get("triplesBefore").asLong());
+            assertTrue(record.get("newTriples").asLong() > 0);
+        }
+
+        // Zeus should now be a Being
         try (Session session = driver.session()) {
             var result = session.run("""
                 CALL n20s.graph.query('infer_test',
@@ -107,10 +186,152 @@ class N20sTest {
 
             var rows = result.list();
             assertTrue(rows.stream().anyMatch(r ->
-                    r.get("row").asMap().get("x").toString().contains("Zeus")),
-                    "Zeus should be inferred as a Being");
+                    r.get("row").asMap().get("x").toString().contains("Zeus")));
         }
     }
+
+    @Test
+    void testInfer_owlMicro() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('owl_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                    ex:Zeus a ex:God .
+                    ex:God rdfs:subClassOf ex:Immortal .
+                    ex:Immortal rdfs:subClassOf ex:Being .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.infer('owl_test', 'OWL_MICRO')
+                YIELD newTriples RETURN newTriples
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('owl_test',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Being> }')
+                YIELD row
+                RETURN row
+                """);
+
+            assertTrue(result.list().stream().anyMatch(r ->
+                    r.get("row").asMap().get("x").toString().contains("Zeus")));
+        }
+    }
+
+    // ── backward chaining ───────────────────────────────────────
+
+    @Test
+    void testBackwardChaining() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('bc_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                    ex:Zeus a ex:God .
+                    ex:God rdfs:subClassOf ex:Being .
+                ')
+                """);
+        }
+
+        // Query with RDFS backward chaining — no infer() step
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('bc_test',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Being> }',
+                    'RDFS')
+                YIELD row
+                RETURN row
+                """);
+
+            var rows = result.list();
+            assertTrue(rows.stream().anyMatch(r ->
+                    r.get("row").asMap().get("x").toString().contains("Zeus")),
+                    "Backward chaining should infer Zeus as a Being");
+        }
+
+        // Verify base model was NOT modified (no materialization)
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.triples('bc_test')
+                YIELD subject, predicate, object
+                RETURN count(*) AS cnt
+                """);
+
+            assertEquals(2, result.single().get("cnt").asLong(),
+                    "Backward chaining should not add triples to the base model");
+        }
+    }
+
+    // ── construct ───────────────────────────────────────────────
+
+    @Test
+    void testConstruct() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('construct_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                    ex:Athena a ex:God .
+                    ex:Hercules a ex:Hero .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.construct('construct_test',
+                    'CONSTRUCT { ?x <http://ex.org/is> <http://ex.org/divine> }
+                     WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/God> }')
+                YIELD subject, predicate, object
+                RETURN subject, predicate, object
+                """);
+
+            var rows = result.list();
+            assertEquals(2, rows.size());
+            assertTrue(rows.stream().allMatch(r ->
+                    r.get("predicate").asString().equals("http://ex.org/is")));
+        }
+    }
+
+    // ── triples ─────────────────────────────────────────────────
+
+    @Test
+    void testTriples() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('triples_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                    ex:Zeus ex:name "Zeus"@en .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.triples('triples_test')
+                YIELD subject, predicate, object
+                RETURN subject, predicate, object
+                """);
+
+            var rows = result.list();
+            assertEquals(2, rows.size());
+
+            // Check language-tagged literal formatting
+            var nameTriple = rows.stream()
+                    .filter(r -> r.get("predicate").asString().contains("name"))
+                    .findFirst().orElseThrow();
+            assertTrue(nameTriple.get("object").asString().contains("@en"));
+        }
+    }
+
+    // ── list + drop ─────────────────────────────────────────────
 
     @Test
     void testListAndDrop() {
@@ -122,22 +343,260 @@ class N20sTest {
                 """);
         }
 
-        // List
         try (Session session = driver.session()) {
             var result = session.run("CALL n20s.graph.list() YIELD graphName RETURN graphName");
             var names = result.list().stream().map(r -> r.get("graphName").asString()).toList();
             assertTrue(names.contains("g1"));
         }
 
-        // Drop
         try (Session session = driver.session()) {
-            session.run("CALL n20s.graph.drop('g1')");
+            var result = session.run("CALL n20s.graph.drop('g1') YIELD status RETURN status");
+            assertEquals("dropped", result.single().get("status").asString());
         }
 
-        // Verify dropped
         try (Session session = driver.session()) {
             var result = session.run("CALL n20s.graph.list() YIELD graphName RETURN graphName");
             assertTrue(result.list().isEmpty());
+        }
+    }
+
+    @Test
+    void testDropNonExistent() {
+        try (Session session = driver.session()) {
+            var result = session.run("CALL n20s.graph.drop('no_such_graph') YIELD status RETURN status");
+            assertEquals("not found", result.single().get("status").asString());
+        }
+    }
+
+    // ── SHACL validation ────────────────────────────────────────
+
+    @Test
+    void testValidate_conforms() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('valid_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix sh: <http://www.w3.org/ns/shacl#> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    ex:PersonShape a sh:NodeShape ;
+                        sh:targetClass ex:Person ;
+                        sh:property [
+                            sh:path ex:name ;
+                            sh:minCount 1 ;
+                            sh:datatype xsd:string
+                        ] .
+
+                    ex:Alice a ex:Person ;
+                        ex:name "Alice" .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.validate('valid_test')
+                YIELD severity, message
+                RETURN severity, message
+                """);
+
+            var record = result.single();
+            assertEquals("INFO", record.get("severity").asString());
+            assertTrue(record.get("message").asString().contains("conforms"));
+        }
+    }
+
+    @Test
+    void testValidate_violation() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('violation_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix sh: <http://www.w3.org/ns/shacl#> .
+                    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+                    ex:PersonShape a sh:NodeShape ;
+                        sh:targetClass ex:Person ;
+                        sh:property [
+                            sh:path ex:name ;
+                            sh:minCount 1 ;
+                            sh:message "Person must have a name"
+                        ] .
+
+                    ex:Alice a ex:Person .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.validate('violation_test')
+                YIELD focusNode, severity, message
+                RETURN focusNode, severity, message
+                """);
+
+            var rows = result.list();
+            assertEquals(1, rows.size());
+            var row = rows.get(0);
+            assertTrue(row.get("focusNode").asString().contains("Alice"));
+            assertEquals("Violation", row.get("severity").asString());
+            assertTrue(row.get("message").asString().contains("name"));
+        }
+    }
+
+    @Test
+    void testValidate_sparqlConstraint() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('sparql_shacl_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix sh: <http://www.w3.org/ns/shacl#> .
+                    @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+                    ex:NoDuplicateShape a sh:NodeShape ;
+                        sh:targetClass ex:Item ;
+                        sh:sparql [
+                            a sh:SPARQLConstraint ;
+                            sh:message "Item shares a category with another item" ;
+                            sh:select "PREFIX ex: <http://ex.org/> PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> SELECT $this WHERE { $this ex:category ?c . ?other ex:category ?c . FILTER(?other != $this) }"
+                        ] .
+
+                    ex:A a ex:Item ; ex:category ex:Cat1 .
+                    ex:B a ex:Item ; ex:category ex:Cat1 .
+                ')
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.validate('sparql_shacl_test')
+                YIELD focusNode, severity, message
+                RETURN focusNode, severity, message
+                """);
+
+            var rows = result.list();
+            assertTrue(rows.size() >= 2, "Both items should violate the constraint");
+        }
+    }
+
+    // ── project with literals ───────────────────────────────────
+
+    @Test
+    void testProject_literals() {
+        try (Session session = driver.session()) {
+            session.run("""
+                UNWIND [
+                    {s: 'http://ex.org/Zeus', p: 'http://ex.org/name', o: '"Zeus"'},
+                    {s: 'http://ex.org/Zeus', p: 'http://ex.org/label', o: '"Zeus"@en'},
+                    {s: 'http://ex.org/Zeus', p: 'http://ex.org/age', o: '"3000"^^<http://www.w3.org/2001/XMLSchema#integer>'}
+                ] AS t
+                WITH n20s.graph.project('lit_test', t.s, t.p, t.o) AS g
+                RETURN g.tripleCount AS count
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('lit_test',
+                    'SELECT ?age WHERE { <http://ex.org/Zeus> <http://ex.org/age> ?age }')
+                YIELD row
+                RETURN row
+                """);
+
+            var rows = result.list();
+            assertEquals(1, rows.size());
+            assertEquals(3000, ((Number) rows.get(0).get("row").asMap().get("age")).intValue());
+        }
+    }
+
+    // ── blank nodes ─────────────────────────────────────────────
+
+    @Test
+    void testProject_blankNodes() {
+        try (Session session = driver.session()) {
+            session.run("""
+                UNWIND [
+                    {s: '_:b1', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://ex.org/Thing'},
+                    {s: '_:b1', p: 'http://ex.org/name', o: '"Anonymous"'}
+                ] AS t
+                WITH n20s.graph.project('bnode_test', t.s, t.p, t.o) AS g
+                RETURN g.tripleCount AS count
+                """);
+        }
+
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('bnode_test',
+                    'SELECT ?name WHERE { ?x <http://ex.org/name> ?name }')
+                YIELD row
+                RETURN row
+                """);
+
+            assertEquals(1, result.list().size());
+        }
+    }
+
+    // ── empty projection ────────────────────────────────────────
+
+    @Test
+    void testProject_empty() {
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                UNWIND [] AS t
+                WITH n20s.graph.project('empty_test', t.s, t.p, t.o) AS g
+                RETURN g.status AS status, g.tripleCount AS count
+                """);
+
+            var record = result.single();
+            assertEquals("empty", record.get("status").asString());
+            assertEquals(0, record.get("count").asLong());
+        }
+    }
+
+    // ── multiple graphs isolation ───────────────────────────────
+
+    @Test
+    void testMultipleGraphs_isolated() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('graph_a', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Zeus a ex:God .
+                ')
+                """);
+            session.run("""
+                CALL n20s.graph.addTurtle('graph_b', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:Hercules a ex:Hero .
+                ')
+                """);
+        }
+
+        // graph_a should only have God
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('graph_a',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/Hero> }')
+                YIELD row RETURN row
+                """);
+            assertTrue(result.list().isEmpty(), "graph_a should not contain Hero triples");
+        }
+
+        // graph_b should only have Hero
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                CALL n20s.graph.query('graph_b',
+                    'SELECT ?x WHERE { ?x <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex.org/God> }')
+                YIELD row RETURN row
+                """);
+            assertTrue(result.list().isEmpty(), "graph_b should not contain God triples");
+        }
+
+        // list should show both
+        try (Session session = driver.session()) {
+            var result = session.run("CALL n20s.graph.list() YIELD graphName RETURN graphName ORDER BY graphName");
+            var names = result.list().stream().map(r -> r.get("graphName").asString()).toList();
+            assertEquals(List.of("graph_a", "graph_b"), names);
         }
     }
 }

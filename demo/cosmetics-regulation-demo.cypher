@@ -13,229 +13,213 @@
 
 MATCH (n) DETACH DELETE n;
 
-// ── Step 1: Build the LPG graph ──────────────────────────────
-// Brands, products, formulation phases, pre-mixes, ingredients,
-// suppliers, markets — all native LPG
+// ── Step 1: Create the entire LPG graph + RDF triples ────────
+// One single statement so all variables are in scope
+
+CREATE
 
 // Markets
-CREATE (eu:Market {name: 'EU', regulation: 'EC 1223/2009'})
-CREATE (us:Market {name: 'US', regulation: 'FDA CFR Title 21'})
-CREATE (cn:Market {name: 'China', regulation: 'NMPA Cosmetics Regulation'})
-CREATE (jp:Market {name: 'Japan', regulation: 'MHLW Standards'})
+(eu:Market {name: 'EU', regulation: 'EC 1223/2009'}),
+(us:Market {name: 'US', regulation: 'FDA CFR Title 21'}),
+(cn:Market {name: 'China', regulation: 'NMPA Cosmetics Regulation'}),
+(jp:Market {name: 'Japan', regulation: 'MHLW Standards'}),
 
 // Brands
-CREATE (luxe:Brand {name: 'Luxe Beauté'})
-CREATE (natura:Brand {name: 'Natura Lab'})
-CREATE (derma:Brand {name: 'DermaScience'})
+(luxe:Brand {name: 'Luxe Beauté'}),
+(natura:Brand {name: 'Natura Lab'}),
+(derma:Brand {name: 'DermaScience'}),
 
 // Suppliers
-CREATE (supA:Supplier {name: 'ChemSource Asia', country: 'China'})
-CREATE (supB:Supplier {name: 'EuroActives GmbH', country: 'Germany'})
-CREATE (supC:Supplier {name: 'BioRetinol Inc', country: 'US'})
-CREATE (supD:Supplier {name: 'PlantExtract France', country: 'France'})
+(supA:Supplier {name: 'ChemSource Asia', country: 'China'}),
+(supB:Supplier {name: 'EuroActives GmbH', country: 'Germany'}),
+(supC:Supplier {name: 'BioRetinol Inc', country: 'US'}),
+(supD:Supplier {name: 'PlantExtract France', country: 'France'}),
 
-// ── Ingredients ──────────────────────────────────────────────
+// Ingredients
+(retinol:Ingredient {name: 'Retinol', cas: '68-26-8', inci: 'RETINOL'}),
+(retinal:Ingredient {name: 'Retinal', cas: '116-31-4', inci: 'RETINAL'}),
+(bakuchiol:Ingredient {name: 'Bakuchiol', cas: '10309-37-2', inci: 'BAKUCHIOL'}),
+(niacinamide:Ingredient {name: 'Niacinamide', cas: '98-92-0', inci: 'NIACINAMIDE'}),
+(ha:Ingredient {name: 'Hyaluronic Acid', cas: '9004-61-9', inci: 'SODIUM HYALURONATE'}),
+(squalane:Ingredient {name: 'Squalane', cas: '111-01-3', inci: 'SQUALANE'}),
+(vitc:Ingredient {name: 'Ascorbic Acid', cas: '50-81-7', inci: 'ASCORBIC ACID'}),
+(glycolicAcid:Ingredient {name: 'Glycolic Acid', cas: '79-14-1', inci: 'GLYCOLIC ACID'}),
+(salicylicAcid:Ingredient {name: 'Salicylic Acid', cas: '69-72-7', inci: 'SALICYLIC ACID'}),
+(tocopherol:Ingredient {name: 'Tocopherol', cas: '59-02-9', inci: 'TOCOPHEROL'}),
+(caprylic:Ingredient {name: 'Caprylic/Capric Triglyceride', cas: '65381-09-1', inci: 'CAPRYLIC/CAPRIC TRIGLYCERIDE'}),
+(water:Ingredient {name: 'Water', cas: '7732-18-5', inci: 'AQUA'}),
+(phenoxyethanol:Ingredient {name: 'Phenoxyethanol', cas: '122-99-6', inci: 'PHENOXYETHANOL'}),
 
-CREATE (retinol:Ingredient {name: 'Retinol', cas: '68-26-8', inci: 'RETINOL'})
-CREATE (retinal:Ingredient {name: 'Retinal', cas: '116-31-4', inci: 'RETINAL'})
-CREATE (bakuchiol:Ingredient {name: 'Bakuchiol', cas: '10309-37-2', inci: 'BAKUCHIOL'})
-CREATE (niacinamide:Ingredient {name: 'Niacinamide', cas: '98-92-0', inci: 'NIACINAMIDE'})
-CREATE (ha:Ingredient {name: 'Hyaluronic Acid', cas: '9004-61-9', inci: 'SODIUM HYALURONATE'})
-CREATE (squalane:Ingredient {name: 'Squalane', cas: '111-01-3', inci: 'SQUALANE'})
-CREATE (vitc:Ingredient {name: 'Ascorbic Acid', cas: '50-81-7', inci: 'ASCORBIC ACID'})
-CREATE (glycolicAcid:Ingredient {name: 'Glycolic Acid', cas: '79-14-1', inci: 'GLYCOLIC ACID'})
-CREATE (salicylicAcid:Ingredient {name: 'Salicylic Acid', cas: '69-72-7', inci: 'SALICYLIC ACID'})
-CREATE (tocopherol:Ingredient {name: 'Tocopherol', cas: '59-02-9', inci: 'TOCOPHEROL'})
-CREATE (caprylic:Ingredient {name: 'Caprylic/Capric Triglyceride', cas: '65381-09-1', inci: 'CAPRYLIC/CAPRIC TRIGLYCERIDE'})
-CREATE (water:Ingredient {name: 'Water', cas: '7732-18-5', inci: 'AQUA'})
-CREATE (phenoxyethanol:Ingredient {name: 'Phenoxyethanol', cas: '122-99-6', inci: 'PHENOXYETHANOL'})
-
-// Substitution relationships
-CREATE (bakuchiol)-[:SUBSTITUTE_FOR {reason: 'Plant-based retinoid alternative'}]->(retinol)
-CREATE (retinal)-[:SUBSTITUTE_FOR {reason: 'Aldehyde form, fewer side effects'}]->(retinol)
+// Substitutions
+(bakuchiol)-[:SUBSTITUTE_FOR {reason: 'Plant-based retinoid alternative'}]->(retinol),
+(retinal)-[:SUBSTITUTE_FOR {reason: 'Aldehyde form, fewer side effects'}]->(retinol),
 
 // Supply chain
-CREATE (supA)-[:SUPPLIES {leadTime: 45}]->(retinol)
-CREATE (supC)-[:SUPPLIES {leadTime: 21}]->(retinol)
-CREATE (supB)-[:SUPPLIES {leadTime: 14}]->(retinal)
-CREATE (supD)-[:SUPPLIES {leadTime: 7}]->(bakuchiol)
-CREATE (supA)-[:SUPPLIES]->(niacinamide)
-CREATE (supB)-[:SUPPLIES]->(vitc)
-CREATE (supB)-[:SUPPLIES]->(glycolicAcid)
+(supA)-[:SUPPLIES {leadTime: 45}]->(retinol),
+(supC)-[:SUPPLIES {leadTime: 21}]->(retinol),
+(supB)-[:SUPPLIES {leadTime: 14}]->(retinal),
+(supD)-[:SUPPLIES {leadTime: 7}]->(bakuchiol),
+(supA)-[:SUPPLIES]->(niacinamide),
+(supB)-[:SUPPLIES]->(vitc),
+(supB)-[:SUPPLIES]->(glycolicAcid),
 
-// ── Product 1: Luxe Anti-Aging Serum ─────────────────────────
-// Retinol at 0.1% final concentration (above future EU limit)
+// ── Product 1: Luxe Anti-Aging Serum (Retinol 0.1%) ─────────
 
-CREATE (p1:Product {name: 'Anti-Aging Serum', sku: 'LXB-001'})
-CREATE (p1_phA:Phase {name: 'Water Phase'})
-CREATE (p1_phB:Phase {name: 'Oil Phase'})
-CREATE (p1_phC:Phase {name: 'Active Phase'})
-CREATE (p1_premix:PreMix {name: 'Retinol Pre-Mix'})
+(p1:Product {name: 'Anti-Aging Serum', sku: 'LXB-001'}),
+(p1_phA:Phase {name: 'Water Phase'}),
+(p1_phB:Phase {name: 'Oil Phase'}),
+(p1_phC:Phase {name: 'Active Phase'}),
+(p1_premix:PreMix {name: 'Retinol Pre-Mix'}),
 
-CREATE (luxe)-[:PRODUCES]->(p1)
-CREATE (p1)-[:SELLS_IN]->(eu)
-CREATE (p1)-[:SELLS_IN]->(us)
-CREATE (p1)-[:IN_LINE]->(:ProductLine {name: 'Anti-Aging'})
+(luxe)-[:PRODUCES]->(p1),
+(p1)-[:SELLS_IN]->(eu),
+(p1)-[:SELLS_IN]->(us),
+(p1)-[:IN_LINE]->(:ProductLine {name: 'Anti-Aging'}),
 
-CREATE (p1)-[:CONTAINS {ratio: 0.70}]->(p1_phA)
-CREATE (p1)-[:CONTAINS {ratio: 0.25}]->(p1_phB)
-CREATE (p1)-[:CONTAINS {ratio: 0.05}]->(p1_phC)
+(p1)-[:CONTAINS {ratio: 0.70}]->(p1_phA),
+(p1)-[:CONTAINS {ratio: 0.25}]->(p1_phB),
+(p1)-[:CONTAINS {ratio: 0.05}]->(p1_phC),
 
-CREATE (p1_phA)-[:CONTAINS {ratio: 0.95}]->(water)
-CREATE (p1_phA)-[:CONTAINS {ratio: 0.04}]->(niacinamide)
-CREATE (p1_phA)-[:CONTAINS {ratio: 0.01}]->(phenoxyethanol)
+(p1_phA)-[:CONTAINS {ratio: 0.95}]->(water),
+(p1_phA)-[:CONTAINS {ratio: 0.04}]->(niacinamide),
+(p1_phA)-[:CONTAINS {ratio: 0.01}]->(phenoxyethanol),
 
-CREATE (p1_phB)-[:CONTAINS {ratio: 0.20}]->(p1_premix)
-CREATE (p1_phB)-[:CONTAINS {ratio: 0.80}]->(squalane)
+(p1_phB)-[:CONTAINS {ratio: 0.20}]->(p1_premix),
+(p1_phB)-[:CONTAINS {ratio: 0.80}]->(squalane),
 
-CREATE (p1_premix)-[:CONTAINS {ratio: 0.02}]->(retinol)
-CREATE (p1_premix)-[:CONTAINS {ratio: 0.98}]->(caprylic)
+(p1_premix)-[:CONTAINS {ratio: 0.02}]->(retinol),
+(p1_premix)-[:CONTAINS {ratio: 0.98}]->(caprylic),
 
-CREATE (p1_phC)-[:CONTAINS {ratio: 1.0}]->(ha)
+(p1_phC)-[:CONTAINS {ratio: 1.0}]->(ha),
 
-// ── Product 2: Luxe Night Cream ──────────────────────────────
-// Higher retinol concentration (0.3% final)
+// ── Product 2: Luxe Night Cream (Retinol 0.3%) ──────────────
 
-CREATE (p2:Product {name: 'Night Cream', sku: 'LXB-002'})
-CREATE (p2_phA:Phase {name: 'Water Phase'})
-CREATE (p2_phB:Phase {name: 'Oil Phase'})
-CREATE (p2_premix:PreMix {name: 'Retinol Concentrate'})
+(p2:Product {name: 'Night Cream', sku: 'LXB-002'}),
+(p2_phA:Phase {name: 'Water Phase'}),
+(p2_phB:Phase {name: 'Oil Phase'}),
+(p2_premix:PreMix {name: 'Retinol Concentrate'}),
 
-CREATE (luxe)-[:PRODUCES]->(p2)
-CREATE (p2)-[:SELLS_IN]->(eu)
-CREATE (p2)-[:SELLS_IN]->(jp)
-CREATE (p2)-[:IN_LINE]->(:ProductLine {name: 'Anti-Aging'})
+(luxe)-[:PRODUCES]->(p2),
+(p2)-[:SELLS_IN]->(eu),
+(p2)-[:SELLS_IN]->(jp),
+(p2)-[:IN_LINE]->(:ProductLine {name: 'Anti-Aging'}),
 
-CREATE (p2)-[:CONTAINS {ratio: 0.60}]->(p2_phA)
-CREATE (p2)-[:CONTAINS {ratio: 0.40}]->(p2_phB)
+(p2)-[:CONTAINS {ratio: 0.60}]->(p2_phA),
+(p2)-[:CONTAINS {ratio: 0.40}]->(p2_phB),
 
-CREATE (p2_phA)-[:CONTAINS {ratio: 0.97}]->(water)
-CREATE (p2_phA)-[:CONTAINS {ratio: 0.03}]->(phenoxyethanol)
+(p2_phA)-[:CONTAINS {ratio: 0.97}]->(water),
+(p2_phA)-[:CONTAINS {ratio: 0.03}]->(phenoxyethanol),
 
-CREATE (p2_phB)-[:CONTAINS {ratio: 0.15}]->(p2_premix)
-CREATE (p2_phB)-[:CONTAINS {ratio: 0.85}]->(squalane)
+(p2_phB)-[:CONTAINS {ratio: 0.15}]->(p2_premix),
+(p2_phB)-[:CONTAINS {ratio: 0.85}]->(squalane),
 
-CREATE (p2_premix)-[:CONTAINS {ratio: 0.05}]->(retinol)
-CREATE (p2_premix)-[:CONTAINS {ratio: 0.95}]->(caprylic)
+(p2_premix)-[:CONTAINS {ratio: 0.05}]->(retinol),
+(p2_premix)-[:CONTAINS {ratio: 0.95}]->(caprylic),
 
-// ── Product 3: DermaScience Peel ─────────────────────────────
-// No retinol, has glycolic acid (AHA)
+// ── Product 3: DermaScience Peel (no retinol) ────────────────
 
-CREATE (p3:Product {name: 'Renewal Peel', sku: 'DS-010'})
-CREATE (derma)-[:PRODUCES]->(p3)
-CREATE (p3)-[:SELLS_IN]->(eu)
-CREATE (p3)-[:SELLS_IN]->(us)
+(p3:Product {name: 'Renewal Peel', sku: 'DS-010'}),
+(derma)-[:PRODUCES]->(p3),
+(p3)-[:SELLS_IN]->(eu),
+(p3)-[:SELLS_IN]->(us),
 
-CREATE (p3)-[:CONTAINS {ratio: 0.90}]->(water)
-CREATE (p3)-[:CONTAINS {ratio: 0.08}]->(glycolicAcid)
-CREATE (p3)-[:CONTAINS {ratio: 0.02}]->(phenoxyethanol)
+(p3)-[:CONTAINS {ratio: 0.90}]->(water),
+(p3)-[:CONTAINS {ratio: 0.08}]->(glycolicAcid),
+(p3)-[:CONTAINS {ratio: 0.02}]->(phenoxyethanol),
 
-// ── Product 4: Natura Brightening Serum ──────────────────────
-// Vitamin C + Niacinamide (interaction at low pH)
+// ── Product 4: Natura Brightening Serum (Vit C + Niacinamide) ─
 
-CREATE (p4:Product {name: 'Brightening Serum', sku: 'NL-005'})
-CREATE (natura)-[:PRODUCES]->(p4)
-CREATE (p4)-[:SELLS_IN]->(eu)
-CREATE (p4)-[:SELLS_IN]->(cn)
+(p4:Product {name: 'Brightening Serum', sku: 'NL-005'}),
+(natura)-[:PRODUCES]->(p4),
+(p4)-[:SELLS_IN]->(eu),
+(p4)-[:SELLS_IN]->(cn),
 
-CREATE (p4)-[:CONTAINS {ratio: 0.85}]->(water)
-CREATE (p4)-[:CONTAINS {ratio: 0.10}]->(vitc)
-CREATE (p4)-[:CONTAINS {ratio: 0.04}]->(niacinamide)
-CREATE (p4)-[:CONTAINS {ratio: 0.01}]->(phenoxyethanol)
+(p4)-[:CONTAINS {ratio: 0.85}]->(water),
+(p4)-[:CONTAINS {ratio: 0.10}]->(vitc),
+(p4)-[:CONTAINS {ratio: 0.04}]->(niacinamide),
+(p4)-[:CONTAINS {ratio: 0.01}]->(phenoxyethanol),
 
-// ── Product 5: Natura Retinol Booster ────────────────────────
-// Retinol + Vitamin C (known incompatibility)
+// ── Product 5: Natura Retinol Booster (Retinol + Vit C) ──────
 
-CREATE (p5:Product {name: 'Retinol Booster', sku: 'NL-008'})
-CREATE (p5_phA:Phase {name: 'Aqueous'})
-CREATE (p5_phB:Phase {name: 'Active Oil'})
+(p5:Product {name: 'Retinol Booster', sku: 'NL-008'}),
+(p5_phA:Phase {name: 'Aqueous'}),
+(p5_phB:Phase {name: 'Active Oil'}),
 
-CREATE (natura)-[:PRODUCES]->(p5)
-CREATE (p5)-[:SELLS_IN]->(eu)
-CREATE (p5)-[:SELLS_IN]->(us)
+(natura)-[:PRODUCES]->(p5),
+(p5)-[:SELLS_IN]->(eu),
+(p5)-[:SELLS_IN]->(us),
 
-CREATE (p5)-[:CONTAINS {ratio: 0.70}]->(p5_phA)
-CREATE (p5)-[:CONTAINS {ratio: 0.30}]->(p5_phB)
+(p5)-[:CONTAINS {ratio: 0.70}]->(p5_phA),
+(p5)-[:CONTAINS {ratio: 0.30}]->(p5_phB),
 
-CREATE (p5_phA)-[:CONTAINS {ratio: 0.90}]->(water)
-CREATE (p5_phA)-[:CONTAINS {ratio: 0.10}]->(vitc)
+(p5_phA)-[:CONTAINS {ratio: 0.90}]->(water),
+(p5_phA)-[:CONTAINS {ratio: 0.10}]->(vitc),
 
-CREATE (p5_phB)-[:CONTAINS {ratio: 0.03}]->(retinol)
-CREATE (p5_phB)-[:CONTAINS {ratio: 0.05}]->(tocopherol)
-CREATE (p5_phB)-[:CONTAINS {ratio: 0.92}]->(squalane);
+(p5_phB)-[:CONTAINS {ratio: 0.03}]->(retinol),
+(p5_phB)-[:CONTAINS {ratio: 0.05}]->(tocopherol),
+(p5_phB)-[:CONTAINS {ratio: 0.92}]->(squalane),
 
-// ── Step 2: Attach RDF triples ───────────────────────────────
+// ── RDF triples: ingredient classifications ──────────────────
 
-// Ingredient classifications
-MATCH (i:Ingredient {name: 'Retinol'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'rdf:type', o: 'cosmo:RetinoidAgent'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'rdf:type', o: 'cosmo:PhotosensitiveAgent'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'cosmo:maxConcentrationEU', o: '"0.05"'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'cosmo:regulatoryRef', o: '"EC 1223/2009 Annex III/98a"'});
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'rdf:type', o: 'cosmo:RetinoidAgent'}),
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'rdf:type', o: 'cosmo:PhotosensitiveAgent'}),
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'cosmo:maxConcentrationEU', o: '"0.05"'}),
+(retinol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinol', p: 'cosmo:regulatoryRef', o: '"EC 1223/2009 Annex III/98a"'}),
 
-MATCH (i:Ingredient {name: 'Retinal'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'rdf:type', o: 'cosmo:RetinoidAgent'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'rdf:type', o: 'cosmo:PhotosensitiveAgent'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'cosmo:maxConcentrationEU', o: '"0.01"'});
+(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'rdf:type', o: 'cosmo:RetinoidAgent'}),
+(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'rdf:type', o: 'cosmo:PhotosensitiveAgent'}),
+(retinal)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Retinal', p: 'cosmo:maxConcentrationEU', o: '"0.01"'}),
 
-MATCH (i:Ingredient {name: 'Bakuchiol'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'rdf:type', o: 'cosmo:RetinoidAlternative'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'rdf:type', o: 'cosmo:PlantExtract'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'cosmo:functionallyEquivalentTo', o: 'cosmo:RetinoidAgent'});
+(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'rdf:type', o: 'cosmo:RetinoidAlternative'}),
+(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'rdf:type', o: 'cosmo:PlantExtract'}),
+(bakuchiol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Bakuchiol', p: 'cosmo:functionallyEquivalentTo', o: 'cosmo:RetinoidAgent'}),
 
-MATCH (i:Ingredient {name: 'Ascorbic Acid'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'rdf:type', o: 'cosmo:Antioxidant'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'rdf:type', o: 'cosmo:AcidActiveAgent'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'cosmo:optimalPH', o: '"3.5"'});
+(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'rdf:type', o: 'cosmo:Antioxidant'}),
+(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'rdf:type', o: 'cosmo:AcidActiveAgent'}),
+(vitc)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:AscorbicAcid', p: 'cosmo:optimalPH', o: '"3.5"'}),
 
-MATCH (i:Ingredient {name: 'Glycolic Acid'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'rdf:type', o: 'cosmo:AHAExfoliant'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'rdf:type', o: 'cosmo:AcidActiveAgent'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'cosmo:maxConcentrationEU', o: '"0.10"'});
+(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'rdf:type', o: 'cosmo:AHAExfoliant'}),
+(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'rdf:type', o: 'cosmo:AcidActiveAgent'}),
+(glycolicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:GlycolicAcid', p: 'cosmo:maxConcentrationEU', o: '"0.10"'}),
 
-MATCH (i:Ingredient {name: 'Salicylic Acid'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:SalicylicAcid', p: 'rdf:type', o: 'cosmo:BHAExfoliant'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:SalicylicAcid', p: 'cosmo:maxConcentrationEU', o: '"0.02"'});
+(salicylicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:SalicylicAcid', p: 'rdf:type', o: 'cosmo:BHAExfoliant'}),
+(salicylicAcid)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:SalicylicAcid', p: 'cosmo:maxConcentrationEU', o: '"0.02"'}),
 
-MATCH (i:Ingredient {name: 'Niacinamide'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Niacinamide', p: 'rdf:type', o: 'cosmo:VitaminDerivative'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Niacinamide', p: 'cosmo:optimalPH', o: '"6.0"'});
+(niacinamide)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Niacinamide', p: 'rdf:type', o: 'cosmo:VitaminDerivative'}),
+(niacinamide)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Niacinamide', p: 'cosmo:optimalPH', o: '"6.0"'}),
 
-MATCH (i:Ingredient {name: 'Phenoxyethanol'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Phenoxyethanol', p: 'rdf:type', o: 'cosmo:Preservative'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Phenoxyethanol', p: 'cosmo:maxConcentrationEU', o: '"0.01"'});
+(phenoxyethanol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Phenoxyethanol', p: 'rdf:type', o: 'cosmo:Preservative'}),
+(phenoxyethanol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Phenoxyethanol', p: 'cosmo:maxConcentrationEU', o: '"0.01"'}),
 
-MATCH (i:Ingredient {name: 'Tocopherol'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Tocopherol', p: 'rdf:type', o: 'cosmo:Antioxidant'})
-CREATE (i)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Tocopherol', p: 'cosmo:stabilizes', o: 'cosmo:RetinoidAgent'});
+(tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Tocopherol', p: 'rdf:type', o: 'cosmo:Antioxidant'}),
+(tocopherol)-[:HAS_TRIPLE]->(:Triple {s: 'cosmo:Tocopherol', p: 'cosmo:stabilizes', o: 'cosmo:RetinoidAgent'}),
 
-// ── Step 3: Ontology triples (shared rules) ──────────────────
+// ── RDF triples: ontology (class hierarchy + rules) ──────────
 
-// Class hierarchy
-CREATE (:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'})
-CREATE (:Triple:Ontology {s: 'cosmo:RetinoidAlternative', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'})
-CREATE (:Triple:Ontology {s: 'cosmo:Antioxidant', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'})
-CREATE (:Triple:Ontology {s: 'cosmo:AHAExfoliant', p: 'rdfs:subClassOf', o: 'cosmo:Exfoliant'})
-CREATE (:Triple:Ontology {s: 'cosmo:BHAExfoliant', p: 'rdfs:subClassOf', o: 'cosmo:Exfoliant'})
-CREATE (:Triple:Ontology {s: 'cosmo:Exfoliant', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'})
-CREATE (:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'rdfs:subClassOf', o: 'cosmo:SensitivityConcern'})
-CREATE (:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'rdfs:subClassOf', o: 'cosmo:pHSensitiveAgent'})
-CREATE (:Triple:Ontology {s: 'cosmo:VitaminDerivative', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'})
-CREATE (:Triple:Ontology {s: 'cosmo:PlantExtract', p: 'rdfs:subClassOf', o: 'cosmo:NaturalOrigin'})
-CREATE (:Triple:Ontology {s: 'cosmo:Preservative', p: 'rdfs:subClassOf', o: 'cosmo:FunctionalIngredient'})
+(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
+(:Triple:Ontology {s: 'cosmo:RetinoidAlternative', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
+(:Triple:Ontology {s: 'cosmo:Antioxidant', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
+(:Triple:Ontology {s: 'cosmo:AHAExfoliant', p: 'rdfs:subClassOf', o: 'cosmo:Exfoliant'}),
+(:Triple:Ontology {s: 'cosmo:BHAExfoliant', p: 'rdfs:subClassOf', o: 'cosmo:Exfoliant'}),
+(:Triple:Ontology {s: 'cosmo:Exfoliant', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
+(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'rdfs:subClassOf', o: 'cosmo:SensitivityConcern'}),
+(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'rdfs:subClassOf', o: 'cosmo:pHSensitiveAgent'}),
+(:Triple:Ontology {s: 'cosmo:VitaminDerivative', p: 'rdfs:subClassOf', o: 'cosmo:ActiveIngredient'}),
+(:Triple:Ontology {s: 'cosmo:PlantExtract', p: 'rdfs:subClassOf', o: 'cosmo:NaturalOrigin'}),
+(:Triple:Ontology {s: 'cosmo:Preservative', p: 'rdfs:subClassOf', o: 'cosmo:FunctionalIngredient'}),
 
 // Incompatibility rules
-CREATE (:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:AHAExfoliant'})
-CREATE (:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibilityRisk', o: '"Increased photosensitivity and irritation"'})
-CREATE (:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibilitySeverity', o: '"high"'})
+(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:AHAExfoliant'}),
+(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibilityRisk', o: '"Increased photosensitivity and irritation"'}),
+(:Triple:Ontology {s: 'cosmo:PhotosensitiveAgent', p: 'cosmo:incompatibilitySeverity', o: '"high"'}),
 
-CREATE (:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:AcidActiveAgent'})
-CREATE (:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibilityRisk', o: '"Retinoid degradation at low pH, increased irritation"'})
-CREATE (:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibilitySeverity', o: '"medium"'})
+(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:AcidActiveAgent'}),
+(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibilityRisk', o: '"Retinoid degradation at low pH, increased irritation"'}),
+(:Triple:Ontology {s: 'cosmo:RetinoidAgent', p: 'cosmo:incompatibilitySeverity', o: '"medium"'}),
 
-CREATE (:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:VitaminDerivative'})
-CREATE (:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibilityRisk', o: '"Niacin flushing reaction at low pH"'})
-CREATE (:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibilitySeverity', o: '"low"'});
+(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibleWith', o: 'cosmo:VitaminDerivative'}),
+(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibilityRisk', o: '"Niacin flushing reaction at low pH"'}),
+(:Triple:Ontology {s: 'cosmo:AcidActiveAgent', p: 'cosmo:incompatibilitySeverity', o: '"low"'});
 
 
 // ══════════════════════════════════════════════════════════════
@@ -262,7 +246,7 @@ ORDER BY pct DESC;
 MATCH path = (p:Product)-[:CONTAINS*]->(i:Ingredient {name: 'Retinol'})
 WITH p, i,
      reduce(conc = 1.0, r IN relationships(path) | conc * r.ratio) AS finalConc
-WHERE finalConc > 0.0005  // 0.05% limit
+WHERE finalConc > 0.0005
 MATCH (p)-[:SELLS_IN]->(m:Market {name: 'EU'})
 MATCH (b:Brand)-[:PRODUCES]->(p)
 RETURN b.name AS brand, p.name AS product, p.sku AS sku,
@@ -276,12 +260,11 @@ ORDER BY finalConc DESC;
 //
 // "What can replace Retinol? Who supplies it?"
 
-MATCH (retinol:Ingredient {name: 'Retinol'})<-[:SUBSTITUTE_FOR]-(alt:Ingredient)
+MATCH (retinol:Ingredient {name: 'Retinol'})<-[sf:SUBSTITUTE_FOR]-(alt:Ingredient)
 OPTIONAL MATCH (sup:Supplier)-[:SUPPLIES]->(alt)
 RETURN alt.name AS substitute, alt.inci AS inci,
-       collect(sup.name) AS suppliers,
-       [(alt)-[:SUBSTITUTE_FOR]->(retinol) |
-        head([(alt)-[sf:SUBSTITUTE_FOR]->(retinol) | sf.reason])][0] AS reason;
+       sf.reason AS reason,
+       collect(sup.name) AS suppliers;
 
 
 // ── Demo 4: Validate substitute with n20s ────────────────────
@@ -289,7 +272,6 @@ RETURN alt.name AS substitute, alt.inci AS inci,
 // "Is Bakuchiol compliant in EU? Any interactions with other
 //  ingredients in the Anti-Aging Serum?"
 
-// Scope: Bakuchiol triples + all ingredients from the target product + ontology
 CALL {
   MATCH (:Ingredient {name: 'Bakuchiol'})-[:HAS_TRIPLE]->(t:Triple)
   RETURN t.s AS s, t.p AS p, t.o AS o
@@ -308,7 +290,7 @@ CALL n20s.graph.infer('reformulation_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
 RETURN triplesBefore, triplesAfter, newTriples;
 
-// Check: any incompatibilities between Bakuchiol and existing ingredients?
+// Check: any incompatibilities?
 CALL n20s.graph.query('reformulation_check', '
   PREFIX cosmo: <http://example.org/cosmo#>
   PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -324,10 +306,9 @@ CALL n20s.graph.query('reformulation_check', '
 ') YIELD row
 RETURN row;
 
-// Check: EU concentration limits for the substitute
+// Check: EU concentration limits
 CALL n20s.graph.query('reformulation_check', '
   PREFIX cosmo: <http://example.org/cosmo#>
-
   SELECT ?ingredient ?limit WHERE {
     ?ingredient cosmo:maxConcentrationEU ?limit .
   }

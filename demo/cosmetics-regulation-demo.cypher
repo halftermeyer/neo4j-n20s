@@ -275,7 +275,7 @@ CREATE
   o: 'http://example.org/cosmo#maxConcentrationEU'}),
 (:Triple:SHACLShape {s: '_:prop_maxconc',
   p: 'http://www.w3.org/ns/shacl#minCount',
-  o: '"1"'}),
+  o: '"1"^^<http://www.w3.org/2001/XMLSchema#integer>'}),
 (:Triple:SHACLShape {s: '_:prop_maxconc',
   p: 'http://www.w3.org/ns/shacl#severity',
   o: 'http://www.w3.org/ns/shacl#Warning'}),

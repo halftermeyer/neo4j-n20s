@@ -243,7 +243,12 @@ public class GraphProcedures {
         for (ReportEntry entry : report.getEntries()) {
             String focusNode = entry.focusNode() != null ? entry.focusNode().toString() : null;
             String path = entry.resultPath() != null ? entry.resultPath().toString() : null;
-            String severity = entry.severity() != null ? entry.severity().toString() : "Violation";
+            String severity = "Violation";
+            if (entry.severity() != null) {
+                String sevStr = entry.severity().level().getURI();
+                if (sevStr.contains("#")) severity = sevStr.substring(sevStr.lastIndexOf('#') + 1);
+                else severity = sevStr;
+            }
             String message = entry.message() != null ? entry.message() : "";
             String value = entry.value() != null ? entry.value().toString() : null;
             String sourceShape = entry.source() != null ? entry.source().toString() : null;

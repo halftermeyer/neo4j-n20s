@@ -88,6 +88,16 @@ public class GraphProject {
                 int split = raw.lastIndexOf("\"^^<");
                 String value = raw.substring(1, split);
                 String datatype = raw.substring(split + 4, raw.length() - 1);
+                // Parse typed literals properly for SHACL (needs actual Java types)
+                if (datatype.endsWith("integer") || datatype.endsWith("int")) {
+                    try { return model.createTypedLiteral(Integer.parseInt(value)); }
+                    catch (NumberFormatException e) { /* fall through */ }
+                } else if (datatype.endsWith("decimal") || datatype.endsWith("double") || datatype.endsWith("float")) {
+                    try { return model.createTypedLiteral(Double.parseDouble(value)); }
+                    catch (NumberFormatException e) { /* fall through */ }
+                } else if (datatype.endsWith("boolean")) {
+                    return model.createTypedLiteral(Boolean.parseBoolean(value));
+                }
                 return model.createTypedLiteral(value, datatype);
             }
             if (raw.contains("\"@")) {

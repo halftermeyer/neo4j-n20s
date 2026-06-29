@@ -53,6 +53,7 @@ CALL n20s.graph.drop('check');
 
 | Procedure | Description |
 |---|---|
+| `n20s.graph.addTurtle(name, turtle)` | Parse a Turtle string and add triples to a named graph (creates if needed) |
 | `n20s.graph.query(name, sparql)` | Run a SPARQL SELECT query |
 | `n20s.graph.query(name, sparql, profile)` | Run a SPARQL SELECT with backward-chaining inference (no `infer()` step needed) |
 | `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
@@ -87,6 +88,46 @@ CALL n20s.graph.query('scope', 'SELECT ... (another)');    // step 3: fast (alre
 CALL n20s.graph.query('scope', 'SELECT ...', 'RDFS');      // one step: reason + query
 ```
 
+## Triples as Cargo
+
+RDF knowledge rides along on LPG nodes, invisible to normal Cypher queries. Two strategies:
+
+### Turtle Properties (`addTurtle`)
+
+Serialize RDF as a Turtle string property on nodes. Clean, compact, no extra nodes. Use `n20s.graph.addTurtle()` to project.
+
+```cypher
+// Ingredient carries its RDF classification as a Turtle property
+CREATE (:Ingredient {name: 'Retinol', turtle: '
+  @prefix cosmo: <http://example.org/cosmo#> .
+  cosmo:Retinol a cosmo:RetinoidAgent ;
+                cosmo:maxConcentrationEU "0.05" .
+'})
+
+// Project into in-memory graph
+MATCH (i:Ingredient) WHERE i.turtle IS NOT NULL
+CALL n20s.graph.addTurtle('check', i.turtle)
+YIELD graphName, added RETURN graphName, sum(added);
+```
+
+Best when: knowledge travels with the entity. Supports multiple calls to build up a graph incrementally.
+
+### Triple Nodes (`project`)
+
+Store each triple as a `(:Triple {s, p, o})` node connected via `[:HAS_TRIPLE]`. Granular, individually addressable. Use `n20s.graph.project()` to collect.
+
+```cypher
+// Drug carries individual triple nodes
+(:Drug)-[:HAS_TRIPLE]->(:Triple {s: 'pharma:Aspirin', p: 'rdf:type', o: 'pharma:NSAID'})
+
+// Project via aggregating function
+MATCH (:Drug)-[:HAS_TRIPLE]->(t:Triple)
+WITH n20s.graph.project('check', t.s, t.p, t.o) AS g
+RETURN g.tripleCount;
+```
+
+Best when: you need fine-grained Cypher scoping of individual triples.
+
 ## SHACL Validation
 
 SHACL shapes are projected as regular triples alongside the data. The `validate()` procedure parses shapes from the graph and validates the data against them.
@@ -94,15 +135,15 @@ SHACL shapes are projected as regular triples alongside the data. The `validate(
 Supports both property constraints and SPARQL-based constraints:
 
 ```cypher
-// Project data + ontology + SHACL shapes
-CALL () {
-  MATCH (:Product)-[:CONTAINS*]->(:Ingredient)-[:HAS_TRIPLE]->(t) RETURN t.s AS s, t.p AS p, t.o AS o
-  UNION
-  MATCH (t:Triple:Ontology) RETURN t.s AS s, t.p AS p, t.o AS o
-  UNION
-  MATCH (t:Triple:SHACLShape) RETURN t.s AS s, t.p AS p, t.o AS o
-}
-WITH n20s.graph.project('check', s, p, o) AS g RETURN g;
+// Project data + ontology + SHACL shapes from Turtle properties
+MATCH (:Product {name: 'Retinol Booster'})-[:CONTAINS*]->(i:Ingredient)
+WHERE i.turtle IS NOT NULL
+WITH collect(i.turtle) AS turtles
+MATCH (ont:Ontology), (sh:SHACLRules), (p:Product {name: 'Retinol Booster'})
+WITH turtles + [p.turtle, ont.turtle, sh.turtle] AS allTurtles
+UNWIND allTurtles AS t
+CALL n20s.graph.addTurtle('check', t) YIELD added
+RETURN sum(added);
 
 // Validate — returns violations and warnings
 CALL n20s.graph.validate('check')
@@ -119,7 +160,7 @@ Two ready-to-run demo scripts in `demo/`:
 
 ### Drug Interaction Safety Check
 
-LPG graph of patients, drugs, prescriptions. RDF triples encode drug classifications, interaction rules, and CYP enzyme metabolism. Detects:
+LPG graph of patients, drugs, prescriptions. RDF triples (as Triple nodes via `HAS_TRIPLE`) encode drug classifications, interaction rules, and CYP enzyme metabolism. Detects:
 
 - **Class-level interactions**: Aspirin (NSAID) + Warfarin (Anticoagulant) → bleeding risk
 - **CYP enzyme conflicts**: Omeprazole inhibits CYP2C19, which Clopidogrel needs to activate
@@ -128,7 +169,7 @@ LPG graph of patients, drugs, prescriptions. RDF triples encode drug classificat
 
 ### Cosmetics Regulation Impact Analysis
 
-Multi-level formulation BOM with `reduce()` for final concentrations. Demonstrates:
+Multi-level formulation BOM with `reduce()` for final concentrations. RDF knowledge stored as Turtle properties on nodes — zero Triple nodes. Demonstrates:
 
 - **BOM concentration**: `reduce(conc, r IN rels | conc * r.ratio)` computes final % through phases and pre-mixes
 - **Regulation blast radius**: EU restricts Retinol above 0.05% → which products are affected?
@@ -187,7 +228,10 @@ Restart Neo4j.
 │  LPG Graph (persistent)                        │
 │  (:Patient)-[:PRESCRIBED]->(:Drug)             │
 │  (:Product)-[:CONTAINS]->(:Ingredient)         │
+│                                                │
+│  RDF cargo (two strategies)                    │
 │  (:Drug)-[:HAS_TRIPLE]->(:Triple {s,p,o})      │
+│  (:Ingredient {turtle: '...'})                 │
 │                                                │
 │  n20s In-Memory Graphs (ephemeral)             │
 │  ┌──────────────────────────────┐              │
@@ -199,12 +243,12 @@ Restart Neo4j.
 
 The LPG graph is the **structure** — you navigate it with Cypher.
 The triples are **knowledge** — you reason over them with n20s.
-The triples ride along as cargo via `HAS_TRIPLE`, invisible to normal Cypher queries.
+Triples ride along as cargo (via `HAS_TRIPLE` or `turtle` properties), invisible to normal Cypher queries.
 
 ## Design Principles
 
 - **Scope first, reason second.** Cypher narrows to what matters (hundreds of triples). n20s reasons over the subset (instant).
-- **Triples are cargo, not structure.** `HAS_TRIPLE` attaches knowledge to LPG nodes without polluting the graph with edges you'd never traverse.
+- **Triples are cargo, not structure.** RDF knowledge attaches to LPG nodes without polluting the graph with edges you'd never traverse.
 - **Ephemeral by design.** In-memory graphs are projected, used, and dropped — like GDS projections.
 - **No data model change required.** Your LPG stays as-is. RDF reasoning is a lens you project when needed.
 - **Forward or backward — your choice.** Materialize inferences for repeated queries, or reason lazily for one-shot queries.

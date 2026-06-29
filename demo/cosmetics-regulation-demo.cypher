@@ -11,6 +11,13 @@
 
 MATCH (n) DETACH DELETE n;
 
+CALL n20s.graph.list()
+YIELD graphName
+WITH graphName AS G
+CALL n20s.graph.drop(G)
+YIELD graphName
+RETURN graphName;
+
 // ── Step 1: Create the LPG graph + RDF triples ───────────────
 
 CREATE
@@ -262,15 +269,7 @@ CREATE
     sh:sparql [
       a sh:SPARQLConstraint ;
       sh:message "Retinoid ingredient is incompatible with acid active agent in the same formulation" ;
-      sh:select """
-        SELECT $this WHERE {
-          $this rdf:type/rdfs:subClassOf* cosmo:RetinoidAgent .
-          ?formulation cosmo:containsIngredient $this .
-          ?formulation cosmo:containsIngredient ?other .
-          ?other rdf:type/rdfs:subClassOf* cosmo:AcidActiveAgent .
-          FILTER(?other != $this)
-        }
-      """
+      sh:select "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX cosmo: <http://example.org/cosmo#> SELECT $this WHERE { $this rdf:type/rdfs:subClassOf* cosmo:RetinoidAgent . ?formulation cosmo:containsIngredient $this . ?formulation cosmo:containsIngredient ?other . ?other rdf:type/rdfs:subClassOf* cosmo:AcidActiveAgent . FILTER(?other != $this) }"
     ] .
 
   cosmo:ActiveIngredientShape a sh:NodeShape ;

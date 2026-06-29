@@ -1,5 +1,5 @@
 name,description,query,id,parentId,isFolder
-n20s Demos,,,0,-1,true
+n20s Demos,,,0,,true
 Drug Interaction Demo,,,1,0,true
 Step 0: Clean slate,,"// ══════════════════════════════════════════════════════════════
 // n20s Demo: Drug Interaction Safety Check
@@ -9,8 +9,15 @@ Step 0: Clean slate,,"// ══════════════════�
 
 // ── Step 0: Clean slate ──────────────────────────────────────
 
-MATCH (n) DETACH DELETE n",2,1,false
-"Step 1: Create the LPG graph (patients, drugs, conditions)",,"// ── Step 1: Create the LPG graph (patients, drugs, conditions) ──
+MATCH (n) DETACH DELETE n;
+
+CALL n20s.graph.list()
+YIELD graphName
+WITH graphName AS G
+CALL n20s.graph.drop(G)
+YIELD graphName
+RETURN graphName;",2,1,false
+"Step 1: Ingest (patients, drugs, conditions, triples, ontology)",,"// ── Step 1: Create the LPG graph (patients, drugs, conditions) ──
 
 // Drugs
 CREATE (warfarin:Drug {name: 'Warfarin', brand: 'Coumadin'})
@@ -70,8 +77,9 @@ CREATE (carol)-[:HAS_CONDITION]->(gerd)
 CREATE (carol)-[:HAS_CONDITION]->(depression)
 
 CREATE (dave)-[:HAS_CONDITION]->(afib)
-CREATE (dave)-[:HAS_CONDITION]->(hyperlipidemia)",3,1,false
-Step 2: Attach RDF triples to drug nodes,,"// ── Step 2: Attach RDF triples to drug nodes ─────────────────
+CREATE (dave)-[:HAS_CONDITION]->(hyperlipidemia);
+
+// ── Step 2: Attach RDF triples to drug nodes ─────────────────
 //
 // The LPG graph knows WHO takes WHAT.
 // The RDF triples know WHY things interact.
@@ -85,38 +93,48 @@ Step 2: Attach RDF triples to drug nodes,,"// ── Step 2: Attach RDF triples 
 MATCH (d:Drug {name: 'Warfarin'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Warfarin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#Anticoagulant'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Warfarin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#VitaminKAntagonist'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Warfarin', p: 'http://example.org/pharma#metabolizedBy', o: 'http://example.org/pharma#CYP2C9'})",4,1,false
-MATCH (d:Drug {name: 'Aspirin'}),,"MATCH (d:Drug {name: 'Aspirin'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Warfarin', p: 'http://example.org/pharma#metabolizedBy', o: 'http://example.org/pharma#CYP2C9'});
+
+MATCH (d:Drug {name: 'Aspirin'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Aspirin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#NSAID'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Aspirin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#PlateletInhibitor'})",5,1,false
-MATCH (d:Drug {name: 'Ibuprofen'}),,"MATCH (d:Drug {name: 'Ibuprofen'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Ibuprofen', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#NSAID'})",6,1,false
-MATCH (d:Drug {name: 'Metformin'}),,"MATCH (d:Drug {name: 'Metformin'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Aspirin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#PlateletInhibitor'});
+
+MATCH (d:Drug {name: 'Ibuprofen'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Ibuprofen', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#NSAID'});
+
+MATCH (d:Drug {name: 'Metformin'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Metformin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#Antidiabetic'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Metformin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#BiguanideAgent'})",7,1,false
-MATCH (d:Drug {name: 'Lisinopril'}),,"MATCH (d:Drug {name: 'Lisinopril'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Metformin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#BiguanideAgent'});
+
+MATCH (d:Drug {name: 'Lisinopril'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Lisinopril', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#ACEInhibitor'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Lisinopril', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#Antihypertensive'})",8,1,false
-MATCH (d:Drug {name: 'Omeprazole'}),,"MATCH (d:Drug {name: 'Omeprazole'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Lisinopril', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#Antihypertensive'});
+
+MATCH (d:Drug {name: 'Omeprazole'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Omeprazole', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#ProtonPumpInhibitor'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Omeprazole', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP2C19'})",9,1,false
-MATCH (d:Drug {name: 'Simvastatin'}),,"MATCH (d:Drug {name: 'Simvastatin'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Omeprazole', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP2C19'});
+
+MATCH (d:Drug {name: 'Simvastatin'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Simvastatin', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#Statin'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Simvastatin', p: 'http://example.org/pharma#metabolizedBy', o: 'http://example.org/pharma#CYP3A4'})",10,1,false
-MATCH (d:Drug {name: 'Clopidogrel'}),,"MATCH (d:Drug {name: 'Clopidogrel'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Simvastatin', p: 'http://example.org/pharma#metabolizedBy', o: 'http://example.org/pharma#CYP3A4'});
+
+MATCH (d:Drug {name: 'Clopidogrel'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Clopidogrel', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#PlateletInhibitor'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Clopidogrel', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#Thienopyridine'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Clopidogrel', p: 'http://example.org/pharma#activatedBy', o: 'http://example.org/pharma#CYP2C19'})",11,1,false
-MATCH (d:Drug {name: 'Fluoxetine'}),,"MATCH (d:Drug {name: 'Fluoxetine'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Clopidogrel', p: 'http://example.org/pharma#activatedBy', o: 'http://example.org/pharma#CYP2C19'});
+
+MATCH (d:Drug {name: 'Fluoxetine'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Fluoxetine', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#SSRI'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Fluoxetine', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP2C19'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Fluoxetine', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP2D6'})",12,1,false
-MATCH (d:Drug {name: 'Amiodarone'}),,"MATCH (d:Drug {name: 'Amiodarone'})
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Fluoxetine', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP2D6'});
+
+MATCH (d:Drug {name: 'Amiodarone'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Amiodarone', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#Antiarrhythmic'})
 CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Amiodarone', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP2C9'})
-CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Amiodarone', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP3A4'})",13,1,false
-Step 3: Create shared ontology triples,,"// ── Step 3: Create shared ontology triples ───────────────────
-// These are the """"rules"""" — class hierarchy + interaction patterns
+CREATE (d)-[:HAS_TRIPLE]->(:Triple {s: 'http://example.org/pharma#Amiodarone', p: 'http://example.org/pharma#inhibits', o: 'http://example.org/pharma#CYP3A4'});
+
+// ── Step 3: Create shared ontology triples ───────────────────
+// These are the ""rules"" — class hierarchy + interaction patterns
 // Stored as standalone Triple nodes (shared knowledge, not drug-specific)
 
 CREATE (:Triple:Ontology {s: 'http://example.org/pharma#NSAID', p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://example.org/pharma#AntiInflammatory'})
@@ -132,26 +150,26 @@ CREATE (:Triple:Ontology {s: 'http://example.org/pharma#ProtonPumpInhibitor', p:
 
 // Interaction rules — class-level
 CREATE (:Triple:Ontology {s: 'http://example.org/pharma#NSAID', p: 'http://example.org/pharma#interactsWith', o: 'http://example.org/pharma#Anticoagulant'})
-CREATE (:Triple:Ontology {s: 'http://example.org/pharma#NSAID', p: 'http://example.org/pharma#interactionSeverity', o: '""""high""""'})
-CREATE (:Triple:Ontology {s: 'http://example.org/pharma#NSAID', p: 'http://example.org/pharma#interactionRisk', o: '""""Increased bleeding risk""""'})
+CREATE (:Triple:Ontology {s: 'http://example.org/pharma#NSAID', p: 'http://example.org/pharma#interactionSeverity', o: '""high""'})
+CREATE (:Triple:Ontology {s: 'http://example.org/pharma#NSAID', p: 'http://example.org/pharma#interactionRisk', o: '""Increased bleeding risk""'})
 
 CREATE (:Triple:Ontology {s: 'http://example.org/pharma#PlateletInhibitor', p: 'http://example.org/pharma#interactsWith', o: 'http://example.org/pharma#Anticoagulant'})
-CREATE (:Triple:Ontology {s: 'http://example.org/pharma#PlateletInhibitor', p: 'http://example.org/pharma#interactionSeverity', o: '""""high""""'})
-CREATE (:Triple:Ontology {s: 'http://example.org/pharma#PlateletInhibitor', p: 'http://example.org/pharma#interactionRisk', o: '""""Additive bleeding risk""""'})
+CREATE (:Triple:Ontology {s: 'http://example.org/pharma#PlateletInhibitor', p: 'http://example.org/pharma#interactionSeverity', o: '""high""'})
+CREATE (:Triple:Ontology {s: 'http://example.org/pharma#PlateletInhibitor', p: 'http://example.org/pharma#interactionRisk', o: '""Additive bleeding risk""'})
 
 // CYP enzyme interaction rules
 CREATE (:Triple:Ontology {s: 'http://example.org/pharma#CYP2C19', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#CytochromeP450'})
 CREATE (:Triple:Ontology {s: 'http://example.org/pharma#CYP2C9', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#CytochromeP450'})
 CREATE (:Triple:Ontology {s: 'http://example.org/pharma#CYP3A4', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#CytochromeP450'})
-CREATE (:Triple:Ontology {s: 'http://example.org/pharma#CYP2D6', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#CytochromeP450'})",14,1,false
-DEMO QUERIES,,"// ══════════════════════════════════════════════════════════════
+CREATE (:Triple:Ontology {s: 'http://example.org/pharma#CYP2D6', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://example.org/pharma#CytochromeP450'});",3,1,false
+Demo 1: Check Alice's prescriptions,,"// ══════════════════════════════════════════════════════════════
 // ── DEMO QUERIES ─────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 
 // ── Demo 1: Check Alice's prescriptions ──────────────────────
 
 MATCH (p:Patient {name: 'Alice'})-[:PRESCRIBED]->(d:Drug)
-RETURN p.name AS patient, collect(d.name) AS drugs",15,1,false
+RETURN p.name AS patient, collect(d.name) AS drugs",4,1,false
 Demo 2: Scope + Project Alice's drug knowledge,,"// ── Demo 2: Scope + Project Alice's drug knowledge ───────────
 //
 // 1. Traverse LPG to find Alice's drugs
@@ -167,7 +185,7 @@ CALL {
   RETURN t.s AS s, t.p AS p, t.o AS o
 }
 WITH n20s.graph.project('alice_check', s, p, o) AS g
-RETURN g.graphName AS graph, g.tripleCount AS triples",16,1,false
+RETURN g.graphName AS graph, g.tripleCount AS triples",5,1,false
 Demo 3: Run RDFS inference,,"// ── Demo 3: Run RDFS inference ───────────────────────────────
 //
 // Warfarin is a VitaminKAntagonist → subClassOf Anticoagulant → subClassOf BloodThinner
@@ -175,7 +193,7 @@ Demo 3: Run RDFS inference,,"// ── Demo 3: Run RDFS inference ────�
 
 CALL n20s.graph.infer('alice_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
-RETURN triplesBefore, triplesAfter, newTriples",17,1,false
+RETURN triplesBefore, triplesAfter, newTriples",6,1,false
 Demo 4: Detect interactions via SPARQL,,"// ── Demo 4: Detect interactions via SPARQL ───────────────────
 //
 // """"Find pairs of Alice's drugs where one's class interacts with the other's class""""
@@ -193,10 +211,10 @@ CALL n20s.graph.query('alice_check', '
     FILTER(?drug1 != ?drug2)
   }
 ') YIELD row
-RETURN row",18,1,false
+RETURN row",7,1,false
 Demo 5: CYP enzyme conflicts,,"// ── Demo 5: CYP enzyme conflicts ─────────────────────────────
 //
-// """"Find drugs where one inhibits an enzyme that another drug depends on""""
+// ""Find drugs where one inhibits an enzyme that another drug depends on""
 // Checks both metabolizedBy and activatedBy
 
 CALL n20s.graph.query('alice_check', '
@@ -207,18 +225,18 @@ CALL n20s.graph.query('alice_check', '
     ?enzyme a pharma:CytochromeP450 .
     {
       ?affected pharma:metabolizedBy ?enzyme .
-      BIND(""""metabolized by"""" AS ?dependency)
+      BIND(""metabolized by"" AS ?dependency)
     } UNION {
       ?affected pharma:activatedBy ?enzyme .
-      BIND(""""activated by"""" AS ?dependency)
+      BIND(""activated by"" AS ?dependency)
     }
     FILTER(?inhibitor != ?affected)
   }
 ') YIELD row
-RETURN row",19,1,false
+RETURN row;",8,1,false
 Demo 6: Cleanup,,"// ── Demo 6: Cleanup ──────────────────────────────────────────
 
-CALL n20s.graph.drop('alice_check')",20,1,false
+CALL n20s.graph.drop('alice_check')",9,1,false
 CHECK CAROL,,"// ══════════════════════════════════════════════════════════════
 // ── CHECK CAROL ──────────────────────────────────────────────
 //   Clopidogrel (activated by CYP2C19)
@@ -235,12 +253,12 @@ CALL {
   RETURN t.s AS s, t.p AS p, t.o AS o
 }
 WITH n20s.graph.project('carol_check', s, p, o) AS g
-RETURN g.graphName AS graph, g.tripleCount AS triples",21,1,false
+RETURN g.graphName AS graph, g.tripleCount AS triples",10,1,false
 Carol: Infer RDFS,,"// ── Carol: Infer RDFS ────────────────────────────────────────
 
 CALL n20s.graph.infer('carol_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
-RETURN triplesBefore, triplesAfter, newTriples",22,1,false
+RETURN triplesBefore, triplesAfter, newTriples",11,1,false
 Carol: CYP enzyme conflicts,,"// ── Carol: CYP enzyme conflicts ──────────────────────────────
 
 CALL n20s.graph.query('carol_check', '
@@ -251,18 +269,18 @@ CALL n20s.graph.query('carol_check', '
     ?enzyme a pharma:CytochromeP450 .
     {
       ?affected pharma:metabolizedBy ?enzyme .
-      BIND(""""metabolized by"""" AS ?dependency)
+      BIND(""metabolized by"" AS ?dependency)
     } UNION {
       ?affected pharma:activatedBy ?enzyme .
-      BIND(""""activated by"""" AS ?dependency)
+      BIND(""activated by"" AS ?dependency)
     }
     FILTER(?inhibitor != ?affected)
   }
 ') YIELD row
-RETURN row",23,1,false
+RETURN row;",12,1,false
 Carol: Cleanup,,"// ── Carol: Cleanup ───────────────────────────────────────────
 
-CALL n20s.graph.drop('carol_check')",24,1,false
+CALL n20s.graph.drop('carol_check')",13,1,false
 CHECK DAVE,,"// ══════════════════════════════════════════════════════════════
 // ── CHECK DAVE ───────────────────────────────────────────────
 //   Warfarin (metabolized by CYP2C9) + Amiodarone (inhibits CYP2C9) → bleeding
@@ -277,12 +295,12 @@ CALL {
   RETURN t.s AS s, t.p AS p, t.o AS o
 }
 WITH n20s.graph.project('dave_check', s, p, o) AS g
-RETURN g.graphName AS graph, g.tripleCount AS triples",25,1,false
+RETURN g.graphName AS graph, g.tripleCount AS triples",14,1,false
 Dave: Infer RDFS,,"// ── Dave: Infer RDFS ─────────────────────────────────────────
 
 CALL n20s.graph.infer('dave_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
-RETURN triplesBefore, triplesAfter, newTriples",26,1,false
+RETURN triplesBefore, triplesAfter, newTriples",15,1,false
 Dave: CYP enzyme conflicts,,"// ── Dave: CYP enzyme conflicts ───────────────────────────────
 
 CALL n20s.graph.query('dave_check', '
@@ -293,19 +311,19 @@ CALL n20s.graph.query('dave_check', '
     ?enzyme a pharma:CytochromeP450 .
     {
       ?affected pharma:metabolizedBy ?enzyme .
-      BIND(""""metabolized by"""" AS ?dependency)
+      BIND(""metabolized by"" AS ?dependency)
     } UNION {
       ?affected pharma:activatedBy ?enzyme .
-      BIND(""""activated by"""" AS ?dependency)
+      BIND(""activated by"" AS ?dependency)
     }
     FILTER(?inhibitor != ?affected)
   }
 ') YIELD row
-RETURN row",27,1,false
+RETURN row;",16,1,false
 Dave: Cleanup,,"// ── Dave: Cleanup ────────────────────────────────────────────
 
-CALL n20s.graph.drop('dave_check')",28,1,false
-Cosmetics Regulation Demo,,,29,0,true
+CALL n20s.graph.drop('dave_check')",17,1,false
+Cosmetics Regulation Demo,,,18,0,true
 Step 0: Clean slate,,"// ══════════════════════════════════════════════════════════════
 // n20s Demo: Cosmetics Regulation Impact Analysis
 //
@@ -317,7 +335,14 @@ Step 0: Clean slate,,"// ══════════════════�
 
 // ── Step 0: Clean slate ──────────────────────────────────────
 
-MATCH (n) DETACH DELETE n",30,29,false
+MATCH (n) DETACH DELETE n
+
+CALL n20s.graph.list()
+YIELD graphName
+WITH graphName AS G
+CALL n20s.graph.drop(G)
+YIELD graphName
+RETURN graphName;",19,18,false
 Step 1: Create the LPG graph + RDF triples,,"// ── Step 1: Create the LPG graph + RDF triples ───────────────
 
 CREATE
@@ -345,15 +370,15 @@ CREATE
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     cosmo:Retinol rdf:type cosmo:RetinoidAgent , cosmo:PhotosensitiveAgent ;
-                  cosmo:maxConcentrationEU """"0.05"""" ;
-                  cosmo:regulatoryRef """"EC 1223/2009 Annex III/98a"""" .
+                  cosmo:maxConcentrationEU ""0.05"" ;
+                  cosmo:regulatoryRef ""EC 1223/2009 Annex III/98a"" .
   '}),
 (retinal:Ingredient {name: 'Retinal', cas: '116-31-4', inci: 'RETINAL',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     cosmo:Retinal rdf:type cosmo:RetinoidAgent , cosmo:PhotosensitiveAgent ;
-                  cosmo:maxConcentrationEU """"0.01"""" .
+                  cosmo:maxConcentrationEU ""0.01"" .
   '}),
 (bakuchiol:Ingredient {name: 'Bakuchiol', cas: '10309-37-2', inci: 'BAKUCHIOL',
   turtle: '
@@ -367,7 +392,7 @@ CREATE
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     cosmo:Niacinamide rdf:type cosmo:VitaminDerivative ;
-                      cosmo:optimalPH """"6.0"""" .
+                      cosmo:optimalPH ""6.0"" .
   '}),
 (ha:Ingredient {name: 'Hyaluronic Acid', cas: '9004-61-9', inci: 'SODIUM HYALURONATE'}),
 (squalane:Ingredient {name: 'Squalane', cas: '111-01-3', inci: 'SQUALANE'}),
@@ -376,21 +401,21 @@ CREATE
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     cosmo:AscorbicAcid rdf:type cosmo:Antioxidant , cosmo:AcidActiveAgent ;
-                       cosmo:optimalPH """"3.5"""" .
+                       cosmo:optimalPH ""3.5"" .
   '}),
 (glycolicAcid:Ingredient {name: 'Glycolic Acid', cas: '79-14-1', inci: 'GLYCOLIC ACID',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     cosmo:GlycolicAcid rdf:type cosmo:AHAExfoliant , cosmo:AcidActiveAgent ;
-                       cosmo:maxConcentrationEU """"0.10"""" .
+                       cosmo:maxConcentrationEU ""0.10"" .
   '}),
 (salicylicAcid:Ingredient {name: 'Salicylic Acid', cas: '69-72-7', inci: 'SALICYLIC ACID',
   turtle: '
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     cosmo:SalicylicAcid rdf:type cosmo:BHAExfoliant ;
-                        cosmo:maxConcentrationEU """"0.02"""" .
+                        cosmo:maxConcentrationEU ""0.02"" .
   '}),
 (tocopherol:Ingredient {name: 'Tocopherol', cas: '59-02-9', inci: 'TOCOPHEROL',
   turtle: '
@@ -406,7 +431,7 @@ CREATE
     @prefix cosmo: <http://example.org/cosmo#> .
     @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
     cosmo:Phenoxyethanol rdf:type cosmo:Preservative ;
-                         cosmo:maxConcentrationEU """"0.01"""" .
+                         cosmo:maxConcentrationEU ""0.01"" .
   '}),
 
 // Substitutions
@@ -542,16 +567,16 @@ CREATE
   cosmo:Preservative        rdfs:subClassOf cosmo:FunctionalIngredient .
 
   cosmo:PhotosensitiveAgent cosmo:incompatibleWith cosmo:AHAExfoliant ;
-                            cosmo:incompatibilityRisk """"Increased photosensitivity and irritation"""" ;
-                            cosmo:incompatibilitySeverity """"high"""" .
+                            cosmo:incompatibilityRisk ""Increased photosensitivity and irritation"" ;
+                            cosmo:incompatibilitySeverity ""high"" .
 
   cosmo:RetinoidAgent       cosmo:incompatibleWith cosmo:AcidActiveAgent ;
-                            cosmo:incompatibilityRisk """"Retinoid degradation at low pH, increased irritation"""" ;
-                            cosmo:incompatibilitySeverity """"medium"""" .
+                            cosmo:incompatibilityRisk ""Retinoid degradation at low pH, increased irritation"" ;
+                            cosmo:incompatibilitySeverity ""medium"" .
 
   cosmo:AcidActiveAgent     cosmo:incompatibleWith cosmo:VitaminDerivative ;
-                            cosmo:incompatibilityRisk """"Niacin flushing reaction at low pH"""" ;
-                            cosmo:incompatibilitySeverity """"low"""" .
+                            cosmo:incompatibilityRisk ""Niacin flushing reaction at low pH"" ;
+                            cosmo:incompatibilitySeverity ""low"" .
 '}),
 
 // ── SHACL Shapes: Turtle property on a dedicated node ────────
@@ -568,16 +593,8 @@ CREATE
     sh:severity sh:Violation ;
     sh:sparql [
       a sh:SPARQLConstraint ;
-      sh:message """"Retinoid ingredient is incompatible with acid active agent in the same formulation"""" ;
-      sh:select """"""""""""
-        SELECT $this WHERE {
-          $this rdf:type/rdfs:subClassOf* cosmo:RetinoidAgent .
-          ?formulation cosmo:containsIngredient $this .
-          ?formulation cosmo:containsIngredient ?other .
-          ?other rdf:type/rdfs:subClassOf* cosmo:AcidActiveAgent .
-          FILTER(?other != $this)
-        }
-      """"""""""""
+      sh:message ""Retinoid ingredient is incompatible with acid active agent in the same formulation"" ;
+      sh:select ""PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> PREFIX cosmo: <http://example.org/cosmo#> SELECT $this WHERE { $this rdf:type/rdfs:subClassOf* cosmo:RetinoidAgent . ?formulation cosmo:containsIngredient $this . ?formulation cosmo:containsIngredient ?other . ?other rdf:type/rdfs:subClassOf* cosmo:AcidActiveAgent . FILTER(?other != $this) }""
     ] .
 
   cosmo:ActiveIngredientShape a sh:NodeShape ;
@@ -586,15 +603,10 @@ CREATE
       sh:path cosmo:maxConcentrationEU ;
       sh:minCount 1 ;
       sh:severity sh:Warning ;
-      sh:message """"Active ingredient missing EU max concentration limit — regulatory gap""""
+      sh:message ""Active ingredient missing EU max concentration limit — regulatory gap""
     ] .
-'})",31,29,false
-DEMO QUERIES,,"// ══════════════════════════════════════════════════════════════
-// ── DEMO QUERIES ─────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════
-
-
-// ── Demo 1: Compute final concentrations via BOM traversal ───
+'});",20,18,false
+Demo 1: Compute final concentrations via BOM traversal,,"// ── Demo 1: Compute final concentrations via BOM traversal ───
 //
 // reduce() multiplies ratios along the path:
 // Product → Phase (70%) → PreMix (20%) → Retinol (2%) = 0.28%
@@ -603,7 +615,7 @@ MATCH path = (p:Product)-[:CONTAINS*]->(i:Ingredient {name: 'Retinol'})
 WITH p, i,
      round(reduce(conc = 1.0, r IN relationships(path) | conc * r.ratio) * 100, 4) AS pct
 RETURN p.name AS product, pct AS retinol_pct
-ORDER BY pct DESC",32,29,false
+ORDER BY pct DESC",21,18,false
 Demo 2: Regulation blast radius,,"// ── Demo 2: Regulation blast radius ──────────────────────────
 //
 // """"EU restricts Retinol above 0.05% — which products are affected?""""
@@ -618,7 +630,7 @@ RETURN b.name AS brand, p.name AS product, p.sku AS sku,
        round(finalConc * 100, 4) AS retinol_pct,
        0.05 AS eu_limit_pct,
        'NON-COMPLIANT' AS status
-ORDER BY finalConc DESC",33,29,false
+ORDER BY finalConc DESC",22,18,false
 Demo 3: Substitution candidates,,"// ── Demo 3: Substitution candidates ──────────────────────────
 //
 // """"What can replace Retinol? Who supplies it?""""
@@ -627,7 +639,7 @@ MATCH (retinol:Ingredient {name: 'Retinol'})<-[sf:SUBSTITUTE_FOR]-(alt:Ingredien
 OPTIONAL MATCH (sup:Supplier)-[:SUPPLIES]->(alt)
 RETURN alt.name AS substitute, alt.inci AS inci,
        sf.reason AS reason,
-       collect(sup.name) AS suppliers",34,29,false
+       collect(sup.name) AS suppliers",23,18,false
 Demo 4a: Project Retinol Booster via Turtle properties,,"// ══════════════════════════════════════════════════════════════
 // FORWARD CHAINING — materialize inferences, then query
 // project ingredient Turtle + ontology Turtle → infer → query
@@ -650,12 +662,12 @@ WITH ingredientTurtles + [p.turtle, ontTurtle] AS allTurtles
 UNWIND allTurtles AS t
 CALL n20s.graph.addTurtle('forward_check', t)
 YIELD graphName, added
-RETURN graphName, sum(added) AS totalTriples",35,29,false
+RETURN graphName, sum(added) AS totalTriples",24,18,false
 Demo 4b: Forward chaining — materialize all RDFS inferences,,"// ── Demo 4b: Forward chaining — materialize all RDFS inferences ─
 
 CALL n20s.graph.infer('forward_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
-RETURN triplesBefore, triplesAfter, newTriples",36,29,false
+RETURN triplesBefore, triplesAfter, newTriples",25,18,false
 Demo 4c: Query the materialized graph,,"// ── Demo 4c: Query the materialized graph ────────────────────
 
 CALL n20s.graph.query('forward_check', '
@@ -671,10 +683,10 @@ CALL n20s.graph.query('forward_check', '
     FILTER(?ing1 != ?ing2)
   }
 ') YIELD row
-RETURN row",37,29,false
+RETURN row",26,18,false
 Demo 4d: Cleanup forward check,,"// ── Demo 4d: Cleanup forward check ───────────────────────────
 
-CALL n20s.graph.drop('forward_check')",38,29,false
+CALL n20s.graph.drop('forward_check')",27,18,false
 Demo 5a: Project via Turtle (same scoping as Demo 4a),,"// ══════════════════════════════════════════════════════════════
 // BACKWARD CHAINING — reason on-the-fly during query
 // project Turtle → query with 'RDFS' (no materialization)
@@ -691,7 +703,7 @@ WITH ingredientTurtles + [p.turtle, ont.turtle] AS allTurtles
 UNWIND allTurtles AS t
 CALL n20s.graph.addTurtle('backward_check', t)
 YIELD graphName, added
-RETURN graphName, sum(added) AS totalTriples",39,29,false
+RETURN graphName, sum(added) AS totalTriples",28,18,false
 Demo 5b: Query with backward chaining — no infer() needed,,"// ── Demo 5b: Query with backward chaining — no infer() needed ─
 
 CALL n20s.graph.query('backward_check', '
@@ -707,7 +719,7 @@ CALL n20s.graph.query('backward_check', '
     FILTER(?ing1 != ?ing2)
   }
 ', 'RDFS') YIELD row
-RETURN row",40,29,false
+RETURN row",29,18,false
 Demo 5c: Check EU limits (no reasoning needed),,"// ── Demo 5c: Check EU limits (no reasoning needed) ───────────
 
 CALL n20s.graph.query('backward_check', '
@@ -716,15 +728,11 @@ CALL n20s.graph.query('backward_check', '
     ?ingredient cosmo:maxConcentrationEU ?limit .
   }
 ') YIELD row
-RETURN row",41,29,false
+RETURN row",30,18,false
 Demo 5d: Cleanup backward check,,"// ── Demo 5d: Cleanup backward check ──────────────────────────
 
-CALL n20s.graph.drop('backward_check')",42,29,false
-Demo 6a: Project ingredients + ontology + SHACL shapes,,"// ══════════════════════════════════════════════════════════════
-// SHACL VALIDATION — shapes from Turtle property
-// ══════════════════════════════════════════════════════════════
-
-// ── Demo 6a: Project ingredients + ontology + SHACL shapes ───
+CALL n20s.graph.drop('backward_check')",31,18,false
+Demo 6a: Project ingredients + ontology + SHACL shapes,,"// ── Demo 6a: Project ingredients + ontology + SHACL shapes ───
 //
 // All three sources from Turtle properties — zero Triple nodes
 
@@ -738,15 +746,15 @@ WITH ingredientTurtles + [p.turtle, ont.turtle, sh.turtle] AS allTurtles
 UNWIND allTurtles AS t
 CALL n20s.graph.addTurtle('shacl_check', t)
 YIELD graphName, added
-RETURN graphName, sum(added) AS totalTriples",43,29,false
+RETURN graphName, sum(added) AS totalTriples;",32,18,false
 Demo 6b: SHACL Validate,,"// ── Demo 6b: SHACL Validate ──────────────────────────────────
 
 CALL n20s.graph.validate('shacl_check')
 YIELD focusNode, severity, message
-RETURN focusNode, severity, message",44,29,false
+RETURN focusNode, severity, message",33,18,false
 Demo 6c: Cleanup SHACL check,,"// ── Demo 6c: Cleanup SHACL check ─────────────────────────────
 
-CALL n20s.graph.drop('shacl_check')",45,29,false
+CALL n20s.graph.drop('shacl_check')",34,18,false
 Demo 7: Full portfolio risk scan,,"// ══════════════════════════════════════════════════════════════
 // FULL PORTFOLIO RISK SCAN (pure Cypher, no n20s)
 // ══════════════════════════════════════════════════════════════
@@ -768,4 +776,4 @@ RETURN b.name AS brand, p.name AS product,
          WHEN retinolConc > 0 THEN 'COMPLIANT'
          ELSE 'NO RETINOL'
        END AS eu_status
-ORDER BY retinolConc DESC",46,29,false
+ORDER BY retinolConc DESC",35,18,false

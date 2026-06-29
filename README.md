@@ -1,72 +1,96 @@
 # n20s — Neo4j In-Memory Semantics
 
-GDS-style in-memory RDF reasoning for Neo4j. Project scoped triples, run RDFS/OWL inference, query with SPARQL — all from Cypher.
+GDS-style in-memory RDF reasoning for Neo4j. Project scoped triples, run RDFS/OWL inference, validate with SHACL, query with SPARQL — all from Cypher.
 
-## Quick Start
+## The Idea
+
+Use Cypher to **scope**, n20s to **reason**.
 
 ```cypher
-// Project triples into a named in-memory RDF graph
-UNWIND [
-  {s: 'http://ex.org/Zeus',   p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://ex.org/God'},
-  {s: 'http://ex.org/Athena', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://ex.org/God'},
-  {s: 'http://ex.org/God',    p: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', o: 'http://ex.org/Being'}
-] AS t
-WITH n20s.graph.project('myGraph', t.s, t.p, t.o) AS g
-RETURN g.graphName, g.tripleCount;
+// 1. Scope: Cypher finds Alice's drugs
+MATCH (:Patient {name: 'Alice'})-[:PRESCRIBED]->(:Drug)-[:HAS_TRIPLE]->(t:Triple)
 
-// Run RDFS inference
-CALL n20s.graph.infer('myGraph', 'RDFS');
+// 2. Project: scoped triples → in-memory RDF graph
+WITH n20s.graph.project('check', t.s, t.p, t.o) AS g
+RETURN g.tripleCount;
 
-// SPARQL query — Zeus is now a Being (inferred)
-CALL n20s.graph.query('myGraph',
-  'SELECT ?x WHERE { ?x a <http://ex.org/Being> }')
-YIELD row RETURN row;
+// 3. Reason: RDFS inference
+CALL n20s.graph.infer('check', 'RDFS');
 
-// Cleanup
-CALL n20s.graph.drop('myGraph');
+// 4. Query: SPARQL on the reasoned graph
+CALL n20s.graph.query('check', '
+  SELECT ?drug1 ?drug2 ?risk WHERE {
+    ?drug1 a ?c1 . ?drug2 a ?c2 .
+    ?c1 <http://ex.org/interactsWith> ?c2 .
+    ?c1 <http://ex.org/risk> ?risk .
+  }') YIELD row RETURN row;
+
+// 5. Validate: SHACL shapes
+CALL n20s.graph.validate('check')
+YIELD focusNode, severity, message RETURN focusNode, severity, message;
+
+// 6. Cleanup
+CALL n20s.graph.drop('check');
 ```
-
-## API
-
-| Function / Procedure | Description |
-|---|---|
-| `n20s.graph.project(name, s, p, o)` | Aggregating function — collect (s, p, o) rows into a named in-memory RDF graph |
-| `n20s.graph.list()` | List all in-memory graphs with triple counts |
-| `n20s.graph.triples(name)` | Stream all triples from a named graph |
-| `n20s.graph.query(name, sparql)` | Run a SPARQL SELECT query |
-| `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
-| `n20s.graph.infer(name, profile)` | Run inference. Profiles: `RDFS`, `OWL_MICRO`, `OWL_MINI`, `OWL` |
-| `n20s.graph.drop(name)` | Drop a named graph and free memory |
 
 ## The GDS Analogy
 
 | GDS | n20s |
 |-----|------|
 | `gds.graph.project()` | `n20s.graph.project()` |
-| `gds.graph.list()` | `n20s.graph.list()` |
-| `gds.graph.drop()` | `n20s.graph.drop()` |
 | `gds.pageRank.stream()` | `n20s.graph.query()` (SPARQL) |
 | `gds.wcc.stream()` | `n20s.graph.infer()` (reasoning) |
+| — | `n20s.graph.validate()` (SHACL) |
+| `gds.graph.drop()` | `n20s.graph.drop()` |
 
-## Scoped Reasoning
+## API
 
-The key idea: use Cypher to scope, then reason on the subset.
+### Aggregating Function
 
-```cypher
-// Scope: get triples about a product's BOM tree
-MATCH (p:Product {name: 'SmartSensor'})<-[:USED_IN*]-(part)
-MATCH (part)-[:HAS_TRIPLE]->(t)
-WITH n20s.graph.project('bomScope', t.s, t.p, t.o) AS g
-RETURN g.tripleCount;
+| Function | Description |
+|---|---|
+| `n20s.graph.project(name, s, p, o)` | Collect (s, p, o) rows into a named in-memory RDF graph |
 
-// Reason over the scoped subset (fast — hundreds of triples, not millions)
-CALL n20s.graph.infer('bomScope', 'RDFS');
+### Procedures
 
-// SPARQL query on the reasoned graph
-CALL n20s.graph.query('bomScope',
-  'SELECT ?x WHERE { ?x a <http://example.org/bom#Part> }')
-YIELD row RETURN row;
-```
+| Procedure | Description |
+|---|---|
+| `n20s.graph.query(name, sparql)` | Run a SPARQL SELECT query |
+| `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
+| `n20s.graph.infer(name, profile)` | Run inference. Profiles: `RDFS`, `OWL_MICRO`, `OWL_MINI`, `OWL` |
+| `n20s.graph.validate(name)` | Validate against SHACL shapes contained in the graph |
+| `n20s.graph.triples(name)` | Stream all triples from a named graph |
+| `n20s.graph.list()` | List all in-memory graphs with triple counts |
+| `n20s.graph.drop(name)` | Drop a named graph and free memory |
+
+## Demos
+
+Two ready-to-run demo scripts in `demo/`:
+
+### Drug Interaction Safety Check
+
+LPG graph of patients, drugs, prescriptions. RDF triples encode drug classifications, interaction rules, and CYP enzyme metabolism. Detects:
+
+- **Class-level interactions**: Aspirin (NSAID) + Warfarin (Anticoagulant) → bleeding risk
+- **CYP enzyme conflicts**: Omeprazole inhibits CYP2C19, which Clopidogrel needs to activate
+
+4 patients, 10 drugs, 3 interaction scenarios (Alice, Carol, Dave).
+
+### Cosmetics Regulation Impact Analysis
+
+Multi-level formulation BOM with `reduce()` for final concentrations. Detects:
+
+- **Regulation blast radius**: EU restricts Retinol above 0.05% → which products are affected?
+- **BOM concentration**: `reduce(conc, r IN rels | conc * r.ratio)` computes final % through phases and pre-mixes
+- **Substitution validation**: Is Bakuchiol a compliant Retinol alternative?
+- **Incompatibility detection**: Retinol + Vitamin C → retinoid degradation at low pH
+- **SHACL validation**: SPARQL-based constraint detects Retinoid + Acid co-formulation
+
+5 products, 13 ingredients, 3 brands, 4 markets, SHACL shapes with SPARQL constraints.
+
+### Browser Bookmarks
+
+Import `demo_bookmarks/n20s-all-demos.csv` in Neo4j Browser (Saved Queries → Import) to get all demos as clickable bookmarks organized in folders.
 
 ## Install
 
@@ -86,6 +110,7 @@ target/lib/jena-arq-4.10.0.jar
 target/lib/jena-base-4.10.0.jar
 target/lib/jena-core-4.10.0.jar
 target/lib/jena-iri-4.10.0.jar
+target/lib/jena-shacl-4.10.0.jar
 target/lib/libthrift-0.19.0.jar
 target/lib/collection-0.7.jar
 ```
@@ -100,6 +125,36 @@ dbms.security.procedures.allowlist=apoc.*,gds.*,n20s.*
 ```
 
 Restart Neo4j.
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────┐
+│  Neo4j Instance                               │
+│                                                │
+│  LPG Graph (persistent)                        │
+│  (:Patient)-[:PRESCRIBED]->(:Drug)             │
+│  (:Product)-[:CONTAINS]->(:Ingredient)         │
+│  (:Drug)-[:HAS_TRIPLE]->(:Triple {s,p,o})      │
+│                                                │
+│  n20s In-Memory Graphs (ephemeral)             │
+│  ┌──────────────────────────────┐              │
+│  │  Jena Model (heap-resident)  │              │
+│  │  SPARQL · RDFS · SHACL       │              │
+│  └──────────────────────────────┘              │
+└──────────────────────────────────────────────┘
+```
+
+The LPG graph is the **structure** — you navigate it with Cypher.
+The triples are **knowledge** — you reason over them with n20s.
+The triples ride along as cargo via `HAS_TRIPLE`, invisible to normal Cypher queries.
+
+## Design Principles
+
+- **Scope first, reason second.** Cypher narrows to what matters (hundreds of triples). n20s reasons over the subset (instant).
+- **Triples are cargo, not structure.** `HAS_TRIPLE` attaches knowledge to LPG nodes without polluting the graph with edges you'd never traverse.
+- **Ephemeral by design.** In-memory graphs are projected, used, and dropped — like GDS projections.
+- **No data model change required.** Your LPG stays as-is. RDF reasoning is a lens you project when needed.
 
 ## Requirements
 

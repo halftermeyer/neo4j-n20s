@@ -255,9 +255,13 @@ CALL {
 WITH n20s.graph.project('carol_check', s, p, o) AS g
 RETURN g.graphName AS graph, g.tripleCount AS triples;
 
+// ── Carol: Infer RDFS ────────────────────────────────────────
+
 CALL n20s.graph.infer('carol_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
 RETURN triplesBefore, triplesAfter, newTriples;
+
+// ── Carol: CYP enzyme conflicts ──────────────────────────────
 
 CALL n20s.graph.query('carol_check', '
   PREFIX pharma: <http://example.org/pharma#>
@@ -276,6 +280,8 @@ CALL n20s.graph.query('carol_check', '
   }
 ') YIELD row
 RETURN row;
+
+// ── Carol: Cleanup ───────────────────────────────────────────
 
 CALL n20s.graph.drop('carol_check');
 
@@ -296,9 +302,13 @@ CALL {
 WITH n20s.graph.project('dave_check', s, p, o) AS g
 RETURN g.graphName AS graph, g.tripleCount AS triples;
 
+// ── Dave: Infer RDFS ─────────────────────────────────────────
+
 CALL n20s.graph.infer('dave_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
 RETURN triplesBefore, triplesAfter, newTriples;
+
+// ── Dave: CYP enzyme conflicts ───────────────────────────────
 
 CALL n20s.graph.query('dave_check', '
   PREFIX pharma: <http://example.org/pharma#>
@@ -317,6 +327,8 @@ CALL n20s.graph.query('dave_check', '
   }
 ') YIELD row
 RETURN row;
+
+// ── Dave: Cleanup ────────────────────────────────────────────
 
 CALL n20s.graph.drop('dave_check');
 

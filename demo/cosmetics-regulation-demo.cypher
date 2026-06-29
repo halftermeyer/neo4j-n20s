@@ -285,12 +285,14 @@ CALL {
 WITH n20s.graph.project('reformulation_check', s, p, o) AS g
 RETURN g.graphName AS graph, g.tripleCount AS triples;
 
-// Infer
+// ── Demo 4b: Infer RDFS on substitute check ─────────────────
+
 CALL n20s.graph.infer('reformulation_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
 RETURN triplesBefore, triplesAfter, newTriples;
 
-// Check: any incompatibilities?
+// ── Demo 4c: Check incompatibilities ─────────────────────────
+
 CALL n20s.graph.query('reformulation_check', '
   PREFIX cosmo: <http://example.org/cosmo#>
   PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -306,7 +308,8 @@ CALL n20s.graph.query('reformulation_check', '
 ') YIELD row
 RETURN row;
 
-// Check: EU concentration limits
+// ── Demo 4d: Check EU concentration limits ───────────────────
+
 CALL n20s.graph.query('reformulation_check', '
   PREFIX cosmo: <http://example.org/cosmo#>
   SELECT ?ingredient ?limit WHERE {
@@ -315,10 +318,12 @@ CALL n20s.graph.query('reformulation_check', '
 ') YIELD row
 RETURN row;
 
+// ── Demo 4e: Cleanup reformulation check ─────────────────────
+
 CALL n20s.graph.drop('reformulation_check');
 
 
-// ── Demo 5: Product 5 — known incompatibility ───────────────
+// ── Demo 5a: Project Retinol Booster — known incompatibility ─
 //
 // Retinol Booster has Retinol + Vitamin C (Ascorbic Acid)
 // Retinoids are incompatible with acid actives
@@ -333,11 +338,14 @@ CALL {
 WITH n20s.graph.project('booster_check', s, p, o) AS g
 RETURN g.graphName, g.tripleCount;
 
+// ── Demo 5b: Infer RDFS on booster ───────────────────────────
+
 CALL n20s.graph.infer('booster_check', 'RDFS')
 YIELD triplesBefore, triplesAfter, newTriples
 RETURN triplesBefore, triplesAfter, newTriples;
 
-// Detect incompatibilities
+// ── Demo 5c: Detect incompatibilities in booster ─────────────
+
 CALL n20s.graph.query('booster_check', '
   PREFIX cosmo: <http://example.org/cosmo#>
   PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -352,6 +360,8 @@ CALL n20s.graph.query('booster_check', '
   }
 ') YIELD row
 RETURN row;
+
+// ── Demo 5d: Cleanup booster check ───────────────────────────
 
 CALL n20s.graph.drop('booster_check');
 

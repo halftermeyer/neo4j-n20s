@@ -34,8 +34,10 @@ public class GraphProcedures {
     @Procedure(name = "n20s.version", mode = Mode.READ)
     @Description("Return n20s plugin and Apache Jena versions.")
     public Stream<VersionResult> version() {
+        String pluginVersion = getClass().getPackage().getImplementationVersion();
+        if (pluginVersion == null) pluginVersion = "dev";
         String jenaVersion = org.apache.jena.Jena.VERSION;
-        return Stream.of(new VersionResult("0.1.0", jenaVersion));
+        return Stream.of(new VersionResult(pluginVersion, jenaVersion));
     }
 
     // ── n20s.graph.list() ─────────────────────────────────────

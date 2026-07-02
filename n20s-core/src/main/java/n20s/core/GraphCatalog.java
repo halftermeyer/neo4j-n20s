@@ -1,4 +1,4 @@
-package n20s;
+package n20s.core;
 
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -25,7 +25,7 @@ public final class GraphCatalog {
     public static Model get(String name) {
         Model m = GRAPHS.get(name);
         if (m == null) {
-            throw new IllegalArgumentException("Graph '" + name + "' not found. Use n20s.graph.project() first.");
+            throw new IllegalArgumentException("Graph '" + name + "' not found. Use n20s.graph.project() or addTurtle() first.");
         }
         return m;
     }

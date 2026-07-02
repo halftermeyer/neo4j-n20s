@@ -1,5 +1,6 @@
 package n20s;
 
+import n20s.core.GraphCatalog;
 import org.junit.jupiter.api.*;
 import org.neo4j.driver.*;
 import org.neo4j.harness.Neo4j;

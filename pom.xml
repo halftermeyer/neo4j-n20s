@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.halftermeyer</groupId>
-    <artifactId>n20s-plugin</artifactId>
+    <artifactId>n20s</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <name>n20s — Neo4j In-Memory Semantics</name>
     <description>
@@ -15,199 +15,84 @@
         Project scoped triples, run RDFS/OWL inference, query with SPARQL.
     </description>
 
+    <modules>
+        <module>n20s-core</module>
+        <module>n20s-plugin</module>
+        <module>n20s-server</module>
+    </modules>
+
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <neo4j.version>2026.05.0</neo4j.version>
         <jena.version>6.1.0</jena.version>
+        <javalin.version>6.6.0</javalin.version>
+        <junit.version>6.0.3</junit.version>
     </properties>
 
-    <dependencies>
-        <!-- Neo4j Procedure API -->
-        <dependency>
-            <groupId>org.neo4j</groupId>
-            <artifactId>neo4j</artifactId>
-            <version>${neo4j.version}</version>
-            <scope>provided</scope>
-        </dependency>
+    <dependencyManagement>
+        <dependencies>
+            <!-- Apache Jena -->
+            <dependency>
+                <groupId>org.apache.jena</groupId>
+                <artifactId>jena-arq</artifactId>
+                <version>${jena.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>jcl-over-slf4j</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.jena</groupId>
+                <artifactId>jena-shacl</artifactId>
+                <version>${jena.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>jcl-over-slf4j</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
 
-        <!-- Apache Jena — in-memory triple store + SPARQL + reasoner -->
-        <dependency>
-            <groupId>org.apache.jena</groupId>
-            <artifactId>jena-arq</artifactId>
-            <version>${jena.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+            <!-- Neo4j -->
+            <dependency>
+                <groupId>org.neo4j</groupId>
+                <artifactId>neo4j</artifactId>
+                <version>${neo4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.neo4j.test</groupId>
+                <artifactId>neo4j-harness</artifactId>
+                <version>${neo4j.version}</version>
+                <scope>test</scope>
+            </dependency>
 
-        <!-- Jena SHACL — shapes validation -->
-        <dependency>
-            <groupId>org.apache.jena</groupId>
-            <artifactId>jena-shacl</artifactId>
-            <version>${jena.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+            <!-- Javalin -->
+            <dependency>
+                <groupId>io.javalin</groupId>
+                <artifactId>javalin</artifactId>
+                <version>${javalin.version}</version>
+            </dependency>
 
-        <!-- Testing -->
-        <dependency>
-            <groupId>org.neo4j.test</groupId>
-            <artifactId>neo4j-harness</artifactId>
-            <version>${neo4j.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>6.0.3</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>3.3.0</version>
-                <configuration>
-                    <archive>
-                        <manifest>
-                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-                        </manifest>
-                    </archive>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals><goal>shade</goal></goals>
-                        <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
-                            <relocations>
-                                <!-- Jena core packages -->
-                                <relocation>
-                                    <pattern>org.apache.jena</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.jena</shadedPattern>
-                                </relocation>
-                                <!-- Commons (conflict with Neo4j) -->
-                                <relocation>
-                                    <pattern>org.apache.commons.collections4</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.commons.collections4</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache.commons.lang3</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.commons.lang3</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache.commons.csv</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.commons.csv</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache.commons.cli</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.commons.cli</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache.commons.io</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.commons.io</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache.commons.compress</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.commons.compress</shadedPattern>
-                                </relocation>
-                                <relocation>
-                                    <pattern>org.apache.commons.codec</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.commons.codec</shadedPattern>
-                                </relocation>
-                                <!-- HTTP (conflict with Neo4j) -->
-                                <relocation>
-                                    <pattern>org.apache.http</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.http</shadedPattern>
-                                </relocation>
-                                <!-- Thrift -->
-                                <relocation>
-                                    <pattern>org.apache.thrift</pattern>
-                                    <shadedPattern>n20s.shaded.org.apache.thrift</shadedPattern>
-                                </relocation>
-                                <!-- Protobuf (conflict with Neo4j) -->
-                                <relocation>
-                                    <pattern>com.google.protobuf</pattern>
-                                    <shadedPattern>n20s.shaded.com.google.protobuf</shadedPattern>
-                                </relocation>
-                                <!-- Gson (conflict with Neo4j) -->
-                                <relocation>
-                                    <pattern>com.google.gson</pattern>
-                                    <shadedPattern>n20s.shaded.com.google.gson</shadedPattern>
-                                </relocation>
-                                <!-- Jackson (conflict with Neo4j) -->
-                                <relocation>
-                                    <pattern>com.fasterxml.jackson</pattern>
-                                    <shadedPattern>n20s.shaded.com.fasterxml.jackson</shadedPattern>
-                                </relocation>
-                                <!-- JSON-LD -->
-                                <relocation>
-                                    <pattern>com.github.jsonldjava</pattern>
-                                    <shadedPattern>n20s.shaded.com.github.jsonldjava</shadedPattern>
-                                </relocation>
-                                <!-- Titanium JSON-LD -->
-                                <relocation>
-                                    <pattern>com.apicatalog</pattern>
-                                    <shadedPattern>n20s.shaded.com.apicatalog</shadedPattern>
-                                </relocation>
-                                <!-- Jakarta JSON -->
-                                <relocation>
-                                    <pattern>org.glassfish.json</pattern>
-                                    <shadedPattern>n20s.shaded.org.glassfish.json</shadedPattern>
-                                </relocation>
-                                <!-- Dexx collections -->
-                                <relocation>
-                                    <pattern>com.github.andrewoma.dexx</pattern>
-                                    <shadedPattern>n20s.shaded.com.github.andrewoma.dexx</shadedPattern>
-                                </relocation>
-                                <!-- RoaringBitmap -->
-                                <relocation>
-                                    <pattern>org.roaringbitmap</pattern>
-                                    <shadedPattern>n20s.shaded.org.roaringbitmap</shadedPattern>
-                                </relocation>
-                            </relocations>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                            </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+            <!-- Testing -->
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>${junit.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

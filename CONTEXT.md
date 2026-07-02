@@ -151,10 +151,59 @@ When building a demo on n20s, the most compelling pattern is:
 - SPARQL inside `sh:select` must be a single-line double-quoted string with its own PREFIX declarations
 - Browser bookmarks go in `demo_bookmarks/` as CSV (double quotes escaped as `""`)
 
+## Project Structure (Multi-Module Maven)
+
+The repo is a three-module Maven project:
+
+```
+neo4j-n20s/
+├── n20s-core/      Shared Jena reasoning engine — GraphCatalog, GraphEngine, TripleParser, model POJOs
+├── n20s-plugin/    Neo4j @Procedure wrappers — thin delegates to GraphEngine, includes shade plugin
+├── n20s-server/    Javalin HTTP server — REST endpoints mirroring plugin procedures, Dockerfile
+└── pom.xml         Parent POM with shared dependency versions
+```
+
+- **n20s-core** has zero Neo4j dependency. It contains `GraphCatalog` (named graph registry), `GraphEngine` (all Jena reasoning logic), `TripleParser` (literal/blank-node parsing), and result POJOs.
+- **n20s-plugin** depends on n20s-core + Neo4j (provided). Each `@Procedure` method is a one-liner: `return GraphEngine.query(...).stream()`. The shade plugin bundles and relocates Jena for classpath safety.
+- **n20s-server** depends on n20s-core + Javalin + Jackson. Exposes 13 REST endpoints that delegate to `GraphEngine`. Ships as a runnable fat JAR (22MB) with a multi-stage Dockerfile.
+
+### When to use which
+
+- **Plugin**: self-managed Neo4j where you can install JARs. Procedures are called directly from Cypher.
+- **Server**: managed services (Aura) or environments where plugins can't be installed. The application scopes data with Cypher via bolt, then sends Turtle to the server for reasoning over HTTP.
+
+Both use the exact same Jena reasoning engine underneath.
+
+### REST API (n20s-server)
+
+| Plugin procedure | Method | Endpoint |
+|---|---|---|
+| `n20s.graph.addTurtle(name, turtle)` | POST | `/graph/{name}/turtle` |
+| `n20s.graph.project(name, s, p, o)` | POST | `/graph/{name}/triples` |
+| `n20s.graph.query(name, sparql, profile)` | POST | `/graph/{name}/query` |
+| `n20s.graph.queryWithRules(name, sparql, rules, profile)` | POST | `/graph/{name}/queryWithRules` |
+| `n20s.graph.construct(name, sparql)` | POST | `/graph/{name}/construct` |
+| `n20s.graph.infer(name, profile)` | POST | `/graph/{name}/infer` |
+| `n20s.graph.inferWithRules(name, rules, profile)` | POST | `/graph/{name}/inferWithRules` |
+| `n20s.graph.validate(name)` | POST | `/graph/{name}/validate` |
+| `n20s.graph.toTurtle(name)` | GET | `/graph/{name}/turtle` |
+| `n20s.graph.triples(name)` | GET | `/graph/{name}/triples` |
+| `n20s.graph.list()` | GET | `/graph` |
+| `n20s.graph.drop(name)` | DELETE | `/graph/{name}` |
+| `n20s.version()` | GET | `/version` |
+
+Request bodies are JSON. Example:
+```bash
+curl -X POST http://localhost:7474/graph/test/turtle \
+  -H 'Content-Type: application/json' \
+  -d '{"turtle":"@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}'
+```
+
 ## Technical Details
 
-- **Runtime**: Apache Jena 6.1, bundled in a single fat JAR via maven-shade-plugin
-- **Package relocation**: all Jena dependencies relocated under `n20s.shaded.*` to avoid classpath conflicts with Neo4j
-- **Memory**: Jena models are heap-resident (~200-300 bytes per triple). Shared with Neo4j's JVM heap.
-- **Thread safety**: `GraphCatalog` uses `ConcurrentHashMap`. Individual Jena Models are not thread-safe — concurrent access to the same named graph from different transactions is not supported.
-- **Neo4j compatibility**: 5.x, 2025.x, 2026.x. Java 17+.
+- **Runtime**: Apache Jena 6.1. Plugin bundles it in a fat JAR via maven-shade-plugin. Server bundles it via a separate shade config.
+- **Package relocation** (plugin only): all Jena dependencies relocated under `n20s.shaded.*` to avoid classpath conflicts with Neo4j. The server has no relocation (no Neo4j on the classpath).
+- **Memory**: Jena models are heap-resident (~200-300 bytes per triple). In the plugin, shared with Neo4j's JVM heap. In the server, its own JVM.
+- **Thread safety**: `GraphCatalog` uses `ConcurrentHashMap`. Individual Jena Models are not thread-safe — concurrent access to the same named graph from different transactions/requests is not supported.
+- **Neo4j compatibility** (plugin): 5.x, 2025.x, 2026.x. Java 17+.
+- **Server deployment**: runnable fat JAR (22MB), port via `PORT` env var (default 7474), multi-stage Dockerfile provided.

@@ -227,24 +227,13 @@ Import `demo_bookmarks/n20s-all-demos.csv` in Neo4j Browser (Saved Queries → I
 
 ## Install
 
-### Pre-built release (recommended)
+### Option 1: Neo4j Plugin (recommended for self-managed Neo4j)
 
-Download the latest fat JAR from [GitHub Releases](https://github.com/halftermeyer/neo4j-n20s/releases) and copy it to your Neo4j `plugins/` directory:
+Download the latest plugin fat JAR from [GitHub Releases](https://github.com/halftermeyer/neo4j-n20s/releases) and copy it to your Neo4j `plugins/` directory:
 
 ```bash
 cp n20s-plugin-*.jar $NEO4J_HOME/plugins/
 ```
-
-### Build from source
-
-```bash
-mvn clean package -DskipTests
-cp target/n20s-plugin-*.jar $NEO4J_HOME/plugins/
-```
-
-All dependencies (Apache Jena, SHACL, etc.) are bundled in a single fat JAR and relocated to avoid classpath conflicts.
-
-### Configure
 
 Add n20s to the procedure allowlist in `neo4j.conf`:
 
@@ -258,33 +247,108 @@ If you already have an allowlist (e.g., for APOC or GDS), append n20s to it:
 dbms.security.procedures.allowlist=apoc.*,gds.*,n20s.*
 ```
 
-Restart Neo4j.
+Restart Neo4j. All dependencies (Apache Jena, SHACL, etc.) are bundled and relocated to avoid classpath conflicts.
+
+### Option 2: Standalone Server (for Aura / managed Neo4j)
+
+When the plugin can't be installed (e.g., Neo4j Aura), use the **n20s-server** — a standalone HTTP server exposing the same Jena reasoning engine as REST endpoints.
+
+```bash
+# Run the fat JAR
+java -jar n20s-server-*.jar
+
+# Or with Docker
+docker build -f n20s-server/Dockerfile -t n20s-server .
+docker run -p 7474:7474 n20s-server
+```
+
+The server starts on port 7474 (configurable via `PORT` env var). Your application scopes data with Cypher on Aura, collects Turtle strings, and sends them to the server for reasoning.
+
+```bash
+# Add triples
+curl -X POST http://localhost:7474/graph/check/turtle \
+  -H 'Content-Type: application/json' \
+  -d '{"turtle":"@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}'
+
+# Query with RDFS backward chaining
+curl -X POST http://localhost:7474/graph/check/query \
+  -H 'Content-Type: application/json' \
+  -d '{"sparql":"SELECT ?x WHERE { ?x a <http://ex.org/Being> }","reasoningProfile":"RDFS"}'
+```
+
+#### REST API (n20s-server)
+
+| Plugin procedure | Method | Endpoint |
+|---|---|---|
+| `n20s.graph.addTurtle(name, turtle)` | POST | `/graph/{name}/turtle` |
+| `n20s.graph.project(name, s, p, o)` | POST | `/graph/{name}/triples` |
+| `n20s.graph.query(name, sparql, profile)` | POST | `/graph/{name}/query` |
+| `n20s.graph.queryWithRules(name, sparql, rules, profile)` | POST | `/graph/{name}/queryWithRules` |
+| `n20s.graph.construct(name, sparql)` | POST | `/graph/{name}/construct` |
+| `n20s.graph.infer(name, profile)` | POST | `/graph/{name}/infer` |
+| `n20s.graph.inferWithRules(name, rules, profile)` | POST | `/graph/{name}/inferWithRules` |
+| `n20s.graph.validate(name)` | POST | `/graph/{name}/validate` |
+| `n20s.graph.toTurtle(name)` | GET | `/graph/{name}/turtle` |
+| `n20s.graph.triples(name)` | GET | `/graph/{name}/triples` |
+| `n20s.graph.list()` | GET | `/graph` |
+| `n20s.graph.drop(name)` | DELETE | `/graph/{name}` |
+| `n20s.version()` | GET | `/version` |
+
+### Build from source
+
+```bash
+# Build all modules
+mvn clean package
+
+# Plugin JAR (for Neo4j plugins/ directory)
+cp n20s-plugin/target/n20s-plugin-*.jar $NEO4J_HOME/plugins/
+
+# Server JAR (standalone, runnable)
+java -jar n20s-server/target/n20s-server-*.jar
+```
 
 ## Architecture
 
 ```
 ┌──────────────────────────────────────────────┐
-│  Neo4j Instance                               │
-│                                                │
-│  LPG Graph (persistent)                        │
-│  (:Patient)-[:PRESCRIBED]->(:Drug)             │
-│  (:Product)-[:CONTAINS]->(:Ingredient)         │
-│                                                │
-│  RDF cargo (two strategies)                    │
-│  (:Drug)-[:HAS_TRIPLE]->(:Triple {s,p,o})      │
-│  (:Ingredient {turtle: '...'})                 │
-│                                                │
-│  n20s In-Memory Graphs (ephemeral)             │
-│  ┌──────────────────────────────┐              │
-│  │  Jena Model (heap-resident)  │              │
-│  │  SPARQL · RDFS/OWL · SHACL   │              │
-│  └──────────────────────────────┘              │
+│  Neo4j (self-managed or Aura)                │
+│                                              │
+│  LPG Graph (persistent)                      │
+│  (:Patient)-[:PRESCRIBED]->(:Drug)           │
+│  (:Product)-[:CONTAINS]->(:Ingredient)       │
+│                                              │
+│  RDF cargo (two strategies)                  │
+│  (:Drug)-[:HAS_TRIPLE]->(:Triple {s,p,o})    │
+│  (:Ingredient {turtle: '...'})               │
+└──────────────┬───────────────────────────────┘
+               │ scope with Cypher, then...
+               ▼
+┌──────────────────────────────────────────────┐
+│  n20s Reasoning Engine (Apache Jena)         │
+│  ┌────────────────────────────────────────┐  │
+│  │  In-Memory RDF Graphs (ephemeral)      │  │
+│  │  SPARQL · RDFS/OWL · SHACL · Rules     │  │
+│  └────────────────────────────────────────┘  │
+│                                              │
+│  Delivered as:                               │
+│  • Neo4j plugin (in-process, from Cypher)    │
+│  • HTTP server  (sidecar, from any client)   │
 └──────────────────────────────────────────────┘
 ```
 
 The LPG graph is the **structure** — you navigate it with Cypher.
 The triples are **knowledge** — you reason over them with n20s.
 Triples ride along as cargo (via `HAS_TRIPLE` or `turtle` properties), invisible to normal Cypher queries.
+
+## Project Structure
+
+```
+neo4j-n20s/
+├── n20s-core/      Shared Jena reasoning engine (no Neo4j dependency)
+├── n20s-plugin/    Neo4j procedure wrappers (thin delegates to core)
+├── n20s-server/    Javalin HTTP server + Dockerfile
+└── pom.xml         Parent POM (multi-module Maven project)
+```
 
 ## Design Principles
 

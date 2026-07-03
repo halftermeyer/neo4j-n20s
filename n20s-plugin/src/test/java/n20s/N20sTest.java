@@ -20,6 +20,7 @@ class N20sTest {
     static void setup() {
         neo4j = Neo4jBuilders.newInProcessBuilder()
                 .withAggregationFunction(GraphProject.class)
+                .withAggregationFunction(GraphAddTurtle.class)
                 .withProcedure(GraphProcedures.class)
                 .build();
         driver = GraphDatabase.driver(neo4j.boltURI());

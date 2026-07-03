@@ -64,10 +64,11 @@ public final class GraphEngine {
     // ── Add Turtle ──────────────────────────────────────────────
 
     public static AddTurtleResult addTurtle(String name, String turtle) {
-        Model model = GraphCatalog.exists(name)
-                ? GraphCatalog.get(name)
-                : ModelFactory.createDefaultModel();
+        return addTurtle(name, turtle, "append");
+    }
 
+    public static AddTurtleResult addTurtle(String name, String turtle, String ifExists) {
+        Model model = resolveModelForWrite(name, ifExists);
         long before = model.size();
 
         try {
@@ -87,11 +88,15 @@ public final class GraphEngine {
     // ── Project Triples (batch) ─────────────────────────────────
 
     public static ProjectResult projectTriples(String name, List<String[]> triples) {
+        return projectTriples(name, triples, "replace");
+    }
+
+    public static ProjectResult projectTriples(String name, List<String[]> triples, String ifExists) {
         if (triples == null || triples.isEmpty()) {
             return new ProjectResult(name, 0, "empty");
         }
 
-        Model model = ModelFactory.createDefaultModel();
+        Model model = resolveModelForWrite(name, ifExists);
         long count = 0;
 
         for (String[] spo : triples) {
@@ -105,7 +110,10 @@ public final class GraphEngine {
             count++;
         }
 
-        GraphCatalog.put(name, model);
+        if (!GraphCatalog.exists(name)) {
+            GraphCatalog.put(name, model);
+        }
+
         return new ProjectResult(name, count, "projected");
     }
 
@@ -330,6 +338,35 @@ public final class GraphEngine {
         }
 
         return ruleList;
+    }
+
+    /**
+     * Resolve the target model for a write operation based on ifExists policy.
+     *   "append"  — use existing model, or create new (default for addTurtle)
+     *   "replace" — drop existing and create new (default for project)
+     *   "fail"    — throw if graph already exists (GDS-style)
+     */
+    public static Model resolveModelForWrite(String name, String ifExists) {
+        String mode = ifExists != null ? ifExists.toLowerCase() : "append";
+        boolean exists = GraphCatalog.exists(name);
+
+        return switch (mode) {
+            case "fail" -> {
+                if (exists) {
+                    throw new IllegalArgumentException("Graph '" + name
+                            + "' already exists. Use ifExists: 'append' or 'replace'.");
+                }
+                yield ModelFactory.createDefaultModel();
+            }
+            case "replace" -> {
+                if (exists) GraphCatalog.drop(name);
+                Model m = ModelFactory.createDefaultModel();
+                GraphCatalog.put(name, m);
+                yield m;
+            }
+            default -> // append
+                    exists ? GraphCatalog.get(name) : ModelFactory.createDefaultModel();
+        };
     }
 
     private static final Set<String> AXIOMATIC_NAMESPACES = Set.of(

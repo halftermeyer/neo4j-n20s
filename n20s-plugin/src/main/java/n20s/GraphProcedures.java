@@ -99,11 +99,12 @@ public class GraphProcedures {
     // ── n20s.graph.addTurtle() ─────────────────────────────────
 
     @Procedure(name = "n20s.graph.addTurtle", mode = Mode.READ)
-    @Description("Parse a Turtle string and add its triples to a named in-memory RDF graph. Creates the graph if it doesn't exist.")
+    @Description("Parse a Turtle string and add its triples to a named in-memory RDF graph. Creates the graph if it doesn't exist. Optional ifExists: 'append' (default), 'replace', 'fail'.")
     public Stream<AddTurtleResult> addTurtle(
             @Name("name") String name,
-            @Name("turtle") String turtle) {
-        return Stream.of(GraphEngine.addTurtle(name, turtle));
+            @Name("turtle") String turtle,
+            @Name(value = "ifExists", defaultValue = "append") String ifExists) {
+        return Stream.of(GraphEngine.addTurtle(name, turtle, ifExists));
     }
 
     // ── n20s.graph.toTurtle() ─────────────────────────────────

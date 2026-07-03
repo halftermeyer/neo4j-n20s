@@ -193,11 +193,18 @@ All request bodies are JSON. All responses are JSON. The `profile` field is opti
 #### `POST /graph/{name}/turtle` — Add Turtle triples
 
 ```json
-// Request — optional ifExists: "append" (default), "replace", "fail"
-{"turtle": "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .", "ifExists": "append"}
+// Request — single string
+{"turtle": "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}
+
+// Request — batch (array of turtle strings)
+{"turtles": ["@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .",
+             "@prefix ex: <http://ex.org/> . ex:Athena a ex:God ."]}
+
+// Both can be combined, and ifExists is optional: "append" (default), "replace", "fail"
+{"turtle": "...", "turtles": ["...", "..."], "ifExists": "replace"}
 
 // Response
-{"graphName": "test", "triplesBefore": 0, "triplesAfter": 1, "added": 1}
+{"graphName": "test", "triplesBefore": 0, "triplesAfter": 2, "added": 2}
 ```
 
 #### `POST /graph/{name}/triples` — Project (s,p,o) triples

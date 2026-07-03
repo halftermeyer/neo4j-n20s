@@ -285,15 +285,17 @@ docker run -p 7474:7474 n20s-server
 The server starts on port 7474 (configurable via `PORT` env var). Set `CORS=true` for browser-based clients. Your application scopes data with Cypher on Aura, collects Turtle strings, and sends them to the server for reasoning.
 
 ```bash
-# Add triples
+# Add triples (single or batch)
 curl -X POST http://localhost:7474/graph/check/turtle \
   -H 'Content-Type: application/json' \
-  -d '{"turtle":"@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}'
+  -d '{"turtles":["@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .",
+                   "@prefix ex: <http://ex.org/> . ex:God rdfs:subClassOf ex:Being ."],
+       "ifExists":"replace"}'
 
 # Query with RDFS backward chaining
 curl -X POST http://localhost:7474/graph/check/query \
   -H 'Content-Type: application/json' \
-  -d '{"sparql":"SELECT ?x WHERE { ?x a <http://ex.org/Being> }","reasoningProfile":"RDFS"}'
+  -d '{"sparql":"SELECT ?x WHERE { ?x a <http://ex.org/Being> }","profile":"RDFS"}'
 ```
 
 #### REST API (n20s-server)

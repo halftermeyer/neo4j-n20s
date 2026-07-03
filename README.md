@@ -45,10 +45,11 @@ n20s follows the GDS mental model: **project → compute → drop**. Reasoning o
 | GDS | n20s |
 |-----|------|
 | `gds.graph.project()` | `n20s.graph.project()` / `n20s.graph.addTurtle()` |
-| `gds.pageRank.stream()` | `n20s.graph.query()` (SPARQL) |
-| `gds.wcc.stream()` | `n20s.graph.infer()` (forward chaining) |
+| `gds.pageRank.stream()` — results out, projection untouched | `n20s.graph.query()` (SPARQL) |
+| `gds.wcc.mutate()` — results written back into the projection | `n20s.graph.infer()` (forward chaining, materializes entailments) |
 | — | `n20s.graph.query(..., 'RDFS')` (backward chaining) |
 | — | `n20s.graph.validate()` (SHACL) |
+| `gds.graph.export()` | `n20s.graph.toTurtle()` |
 | `gds.graph.drop()` | `n20s.graph.drop()` |
 
 Your LPG graph is the **structure** — you navigate it with Cypher and run GDS on it. RDF triples are **knowledge** — they ride along as cargo on your nodes (a `turtle` string property, or `(:Triple)` nodes), invisible to normal queries, activated only when projected into n20s.

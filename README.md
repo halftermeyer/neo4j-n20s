@@ -46,9 +46,9 @@ n20s follows the GDS mental model: **project → compute → drop**. Reasoning o
 |-----|------|
 | `gds.graph.project()` | `n20s.graph.project()` / `n20s.graph.addTurtle()` |
 | `gds.pageRank.stream()` — results out, projection untouched | `n20s.graph.query()` (SPARQL) |
+| *stream-like* | `n20s.graph.query(..., 'RDFS')` (backward chaining) |
+| *stream-like* | `n20s.graph.validate()` (SHACL) |
 | `gds.wcc.mutate()` — results written back into the projection | `n20s.graph.infer()` (forward chaining, materializes entailments) |
-| — | `n20s.graph.query(..., 'RDFS')` (backward chaining) |
-| — | `n20s.graph.validate()` (SHACL) |
 | `gds.graph.export()` | `n20s.graph.toTurtle()` |
 | `gds.graph.drop()` | `n20s.graph.drop()` |
 

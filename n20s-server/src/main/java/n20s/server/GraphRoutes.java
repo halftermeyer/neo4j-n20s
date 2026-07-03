@@ -68,7 +68,22 @@ public final class GraphRoutes {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(TurtleRequest.class);
         String ifExists = body.ifExists != null ? body.ifExists : "append";
-        ctx.json(GraphEngine.addTurtle(name, body.turtle, ifExists));
+
+        // Collect all turtle strings: single "turtle" + array "turtles"
+        java.util.List<String> all = new java.util.ArrayList<>();
+        if (body.turtle != null) all.add(body.turtle);
+        if (body.turtles != null) all.addAll(body.turtles);
+
+        if (all.isEmpty()) {
+            throw new IllegalArgumentException("Request must include 'turtle' (string) or 'turtles' (array)");
+        }
+
+        // Process first to establish the graph with ifExists policy, then append the rest
+        var result = GraphEngine.addTurtle(name, all.get(0), ifExists);
+        for (int i = 1; i < all.size(); i++) {
+            result = GraphEngine.addTurtle(name, all.get(i), "append");
+        }
+        ctx.json(result);
     }
 
     private static void handleProjectTriples(Context ctx) {
@@ -119,6 +134,7 @@ public final class GraphRoutes {
 
     public static class TurtleRequest {
         public String turtle;
+        public java.util.List<String> turtles;
         public String ifExists;
     }
 

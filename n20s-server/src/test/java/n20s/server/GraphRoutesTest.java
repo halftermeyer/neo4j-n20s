@@ -295,6 +295,39 @@ class GraphRoutesTest {
     }
 
     @Test
+    void testAddTurtle_batch() throws Exception {
+        var resp = post("/graph/batch/turtle",
+                """
+                {"turtles": [
+                    "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .",
+                    "@prefix ex: <http://ex.org/> . ex:Athena a ex:God .",
+                    "@prefix ex: <http://ex.org/> . ex:Hercules a ex:Hero ."
+                ]}
+                """);
+        assertEquals(200, resp.statusCode());
+
+        var queryResp = post("/graph/batch/query",
+                "{\"sparql\": \"SELECT ?x WHERE { ?x a <http://ex.org/God> }\"}");
+        assertTrue(queryResp.body().contains("Zeus"));
+        assertTrue(queryResp.body().contains("Athena"));
+    }
+
+    @Test
+    void testAddTurtle_batchWithSingle() throws Exception {
+        // Both "turtle" and "turtles" in the same request
+        var resp = post("/graph/both/turtle",
+                """
+                {"turtle": "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .",
+                 "turtles": ["@prefix ex: <http://ex.org/> . ex:Athena a ex:God ."]}
+                """);
+        assertEquals(200, resp.statusCode());
+
+        var triples = get("/graph/both/triples");
+        assertTrue(triples.body().contains("Zeus"));
+        assertTrue(triples.body().contains("Athena"));
+    }
+
+    @Test
     void testValidate_emptyBody() throws Exception {
         post("/graph/val_empty/turtle",
                 "{\"turtle\": \"@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .\"}");

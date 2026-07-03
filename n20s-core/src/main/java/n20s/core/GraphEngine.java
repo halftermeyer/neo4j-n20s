@@ -95,6 +95,9 @@ public final class GraphEngine {
         long count = 0;
 
         for (String[] spo : triples) {
+            if (spo[1] == null) {
+                throw new IllegalArgumentException("Triple predicate (p) must not be null");
+            }
             Resource subject = TripleParser.parseSubject(model, spo[0]);
             Property predicate = model.createProperty(spo[1]);
             RDFNode object = TripleParser.parseObject(model, spo[2]);
@@ -168,8 +171,17 @@ public final class GraphEngine {
 
         Reasoner reasoner = resolveReasoner(profile);
         InfModel infModel = ModelFactory.createInfModel(reasoner, model);
+
+        // Materialize all inferred statements, filtering out axiomatic triples
+        // (RDFS/OWL axiom set, rdfs:Resource typing) that inflate counts and pollute exports
         Model materialized = ModelFactory.createDefaultModel();
-        materialized.add(infModel.listStatements());
+        StmtIterator it = infModel.listStatements();
+        while (it.hasNext()) {
+            Statement stmt = it.next();
+            if (!isAxiomatic(stmt)) {
+                materialized.add(stmt);
+            }
+        }
         infModel.close();
 
         GraphCatalog.put(name, materialized);
@@ -181,12 +193,15 @@ public final class GraphEngine {
     // ── Infer With Rules ────────────────────────────────────────
 
     public static InferResult inferWithRules(String name, String rules, String reasoningProfile) {
-        Model model = GraphCatalog.get(name);
-        long before = model.size();
+        Model baseModel = GraphCatalog.get(name);
+        long before = baseModel.size();
 
+        Model model = baseModel;
+        InfModel builtinInfModel = null;
         if (reasoningProfile != null && !reasoningProfile.isEmpty()) {
             Reasoner builtinReasoner = resolveReasoner(reasoningProfile);
-            model = ModelFactory.createInfModel(builtinReasoner, model);
+            builtinInfModel = ModelFactory.createInfModel(builtinReasoner, baseModel);
+            model = builtinInfModel;
         }
 
         List<Rule> ruleList = parseRules(rules);
@@ -196,9 +211,20 @@ public final class GraphEngine {
         reasoner.setTransitiveClosureCaching(false);
 
         InfModel infModel = ModelFactory.createInfModel(reasoner, model);
+
+        // Materialize all inferred statements, filtering out axiomatic triples
         Model materialized = ModelFactory.createDefaultModel();
-        materialized.add(infModel.listStatements());
+        StmtIterator it = infModel.listStatements();
+        while (it.hasNext()) {
+            Statement stmt = it.next();
+            if (!isAxiomatic(stmt)) {
+                materialized.add(stmt);
+            }
+        }
         infModel.close();
+        if (builtinInfModel != null) {
+            builtinInfModel.close();
+        }
 
         GraphCatalog.put(name, materialized);
         long after = materialized.size();
@@ -304,6 +330,31 @@ public final class GraphEngine {
         }
 
         return ruleList;
+    }
+
+    private static final Set<String> AXIOMATIC_NAMESPACES = Set.of(
+            "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+            "http://www.w3.org/2000/01/rdf-schema#",
+            "http://www.w3.org/2002/07/owl#"
+    );
+
+    /**
+     * Filter out axiomatic triples — statements where both subject and predicate
+     * are in RDF/RDFS/OWL namespaces (i.e., schema-level axioms, not user data).
+     * Keeps user-data inferences like "ex:Zeus rdf:type ex:Being".
+     */
+    private static boolean isAxiomatic(Statement stmt) {
+        String s = stmt.getSubject().getURI();
+        String p = stmt.getPredicate().getURI();
+        if (s == null) return false; // blank node subjects are never axiomatic
+        return isInAxiomaticNS(s) && isInAxiomaticNS(p);
+    }
+
+    private static boolean isInAxiomaticNS(String uri) {
+        for (String ns : AXIOMATIC_NAMESPACES) {
+            if (uri.startsWith(ns)) return true;
+        }
+        return false;
     }
 
     private static List<QueryResult> executeSparqlSelect(String sparql, Model model) {

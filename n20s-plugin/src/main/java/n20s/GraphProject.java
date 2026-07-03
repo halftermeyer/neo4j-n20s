@@ -34,6 +34,13 @@ public class GraphProject {
             if (model == null) {
                 graphName = name;
                 model = ModelFactory.createDefaultModel();
+            } else if (!graphName.equals(name)) {
+                throw new RuntimeException("Mixed graph names in project(): started with '"
+                        + graphName + "' but received '" + name + "'. Use a single graph name per aggregation.");
+            }
+
+            if (p == null) {
+                throw new IllegalArgumentException("Triple predicate (p) must not be null");
             }
 
             Resource subject = TripleParser.parseSubject(model, s);

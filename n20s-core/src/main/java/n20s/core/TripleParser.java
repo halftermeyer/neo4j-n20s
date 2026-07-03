@@ -16,6 +16,9 @@ public final class TripleParser {
      * Handles blank nodes (prefix "_:") and URI resources.
      */
     public static Resource parseSubject(Model model, String s) {
+        if (s == null) {
+            throw new IllegalArgumentException("Triple subject (s) must not be null");
+        }
         if (s.startsWith("_:")) {
             return model.createResource(new AnonId(s.substring(2)));
         }
@@ -32,6 +35,9 @@ public final class TripleParser {
      *   URI                  — resource
      */
     public static RDFNode parseObject(Model model, String o) {
+        if (o == null) {
+            throw new IllegalArgumentException("Triple object (o) must not be null");
+        }
         if (o.startsWith("\"")) {
             return parseLiteral(model, o);
         } else if (o.startsWith("_:")) {

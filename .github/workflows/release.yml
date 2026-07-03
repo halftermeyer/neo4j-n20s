@@ -25,14 +25,16 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
-      - name: Set version in pom.xml
-        run: mvn versions:set -DnewVersion=${{ steps.version.outputs.VERSION }} -DgenerateBackupPoms=false
+      - name: Set version in all modules
+        run: mvn versions:set -DnewVersion=${{ steps.version.outputs.VERSION }} -DprocessAllModules -DgenerateBackupPoms=false
 
-      - name: Build fat JAR
-        run: mvn clean package -DskipTests
+      - name: Build and test all modules
+        run: mvn clean package
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: target/n20s-plugin-${{ steps.version.outputs.VERSION }}.jar
+          files: |
+            n20s-plugin/target/n20s-plugin-${{ steps.version.outputs.VERSION }}.jar
+            n20s-server/target/n20s-server-${{ steps.version.outputs.VERSION }}.jar
           generate_release_notes: true

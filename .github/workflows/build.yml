@@ -20,12 +20,19 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build fat JAR
-        run: mvn clean package -DskipTests
+      - name: Build all modules
+        run: mvn clean package
 
-      - name: Upload JAR artifact
+      - name: Upload plugin JAR
         uses: actions/upload-artifact@v4
         with:
           name: n20s-plugin
-          path: target/n20s-plugin-*.jar
+          path: n20s-plugin/target/n20s-plugin-*.jar
+          if-no-files-found: error
+
+      - name: Upload server JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: n20s-server
+          path: n20s-server/target/n20s-server-*.jar
           if-no-files-found: error

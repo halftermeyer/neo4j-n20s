@@ -1,340 +1,229 @@
 # n20s — Context for LLM Agents
 
-This file explains the philosophy, architecture, and intended usage patterns of the n20s Neo4j plugin so that an LLM working on this codebase (or building demos on top of it) can make informed decisions.
+This file is the operating manual for an LLM working on this codebase or building applications on top of n20s. It covers philosophy, API, conventions, and the gotchas that cost integrators real debugging time. For narrative documentation see [README.md](README.md); for the full integration guide see [BEST_PRACTICES.md](BEST_PRACTICES.md).
 
 ## What n20s Is
 
-n20s ("neo4j to semantics") is a Neo4j plugin that brings **RDF reasoning into Cypher workflows**. It follows the GDS (Graph Data Science) mental model: project data into an ephemeral in-memory structure, run computations, get results back, drop the projection.
+n20s brings **RDF reasoning into Cypher workflows** (and, via its server, into any HTTP client). It follows the GDS mental model: project data into an ephemeral in-memory structure, run computations, get results back, drop the projection.
 
-The in-memory structure is an **Apache Jena Model** — a standards-compliant RDF triple store that supports SPARQL queries, RDFS/OWL inference, SHACL validation, and custom rule-based reasoning.
+The in-memory structure is an **Apache Jena Model** — a standards-compliant RDF store supporting SPARQL, RDFS/OWL inference, SHACL validation, and custom rule-based reasoning.
 
-## The Core Insight
+**The core insight: LPG and RDF are complementary computational lenses.**
+- **LPG (Cypher)** — structural computation: traversal, pattern matching, aggregation, graph algorithms. Scales to billions of nodes.
+- **RDF (SPARQL + reasoning)** — logical computation: type inference, class hierarchies, property inheritance, ontology-driven validation.
 
-**LPG and RDF are complementary, not competing.**
+Cypher decides **what** gets reasoned about. n20s decides **how**.
 
-- **LPG (Cypher)** excels at structural computation: path traversal, pattern matching, aggregation, graph algorithms. It's fast, intuitive, and scales to billions of nodes.
-- **RDF (SPARQL + reasoning)** excels at logical computation: type inference via class hierarchies, property inheritance, domain/range propagation, ontology-driven validation. It leverages decades of formal semantics work.
-
-Most projects force a choice. n20s lets you use both in the same query — Cypher for structure, Jena for logic.
-
-## The "Scope First, Reason Second" Pattern
-
-This is the central design pattern. It solves a real problem: reasoning over millions of triples is slow, but reasoning over hundreds is instant.
+## The Central Pattern: Scope First, Reason Second
 
 ```
 1. SCOPE with Cypher    → narrow to the relevant subgraph (fast, indexed)
-2. PROJECT into n20s    → collect scoped triples into an in-memory Jena Model
-3. REASON with n20s     → RDFS inference, custom rules, SPARQL queries
-4. VALIDATE with n20s   → SHACL shapes check
+2. PROJECT into n20s    → collect scoped triples into a named in-memory model
+3. REASON with n20s     → RDFS/OWL inference, custom rules, SPARQL
+4. VALIDATE with n20s   → SHACL shapes
 5. DROP                 → free memory
 ```
 
-The LPG graph acts as an index into the RDF knowledge. You never reason over the whole dataset — you reason over precisely the subset that matters for the question at hand.
+Reasoning over millions of triples is slow; reasoning over the few hundred that matter is instant. Never reason over the whole dataset — the scope *is* the optimization.
 
 ## Triples as Cargo
 
-RDF knowledge is stored as **cargo** on LPG nodes — invisible to normal Cypher queries, activated only when projected into n20s.
+RDF knowledge is stored as **cargo** on LPG nodes — invisible to normal Cypher, activated only when projected.
 
-Two strategies:
-
-### Turtle Properties
-A `turtle` string property on a node containing valid Turtle RDF. Compact, self-contained, no extra nodes. Use `n20s.graph.addTurtle()` to project.
+**Turtle properties** (primary strategy) — a `turtle` string property containing self-contained Turtle. Project with `addTurtle()`:
 
 ```cypher
-(:Drug {name: 'Aspirin', turtle: '
-    @prefix pharma: <http://example.org/pharma#> .
-    pharma:Aspirin a pharma:NSAID, pharma:PlateletInhibitor .
+(:Ingredient {name: 'Retinol', turtle: '
+    @prefix cosmo: <http://example.org/cosmo#> .
+    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+    cosmo:Retinol a cosmo:RetinoidAgent ;
+        rdfs:label "Retinol" .
 '})
 ```
 
-Best for: knowledge that travels with the entity. Ontologies, SHACL shapes, and classification data stored on dedicated nodes.
+**Triple nodes** — individual `(:Triple {s, p, o})` nodes via `[:HAS_TRIPLE]`, each addressable by Cypher. Project with `project()`.
 
-### Triple Nodes
-Individual `(:Triple {s, p, o})` nodes connected via `[:HAS_TRIPLE]`. Each triple is a separate node, individually addressable by Cypher. Use `n20s.graph.project()` to collect.
-
-```cypher
-(:Drug)-[:HAS_TRIPLE]->(:Triple {s: 'pharma:Aspirin', p: 'rdf:type', o: 'pharma:NSAID'})
-```
-
-Best for: fine-grained Cypher scoping (e.g., select only triples related to a specific patient's drugs).
-
-### When to Choose Which
-
-- If the RDF knowledge is self-contained per entity → Turtle property
-- If you need to select individual triples via Cypher patterns → Triple nodes
-- If you have shared knowledge (ontology, rules) → Turtle property on a dedicated `(:Ontology)` or `(:SHACLRules)` node
-- You can mix both strategies in the same graph
-
-## Reasoning Capabilities
-
-### Built-in Profiles (RDFS, OWL)
-Standard entailment rules. RDFS handles subClassOf, subPropertyOf, domain, range, type propagation. OWL profiles add transitivity, symmetry, inverseOf, intersectionOf, etc. These are Jena's rule-based reasoners — not tableaux-based, so no full OWL DL (no cardinality, no negation).
-
-### Custom Rules (Jena Rule Syntax)
-Domain-specific rules using Jena's native format. Support built-in predicates (`greaterThan`, `lessThan`, `sum`, `notEqual`, `regex`, etc.).
-
-```
-[ruleName: (pattern1) (pattern2) builtinTest(args) -> (conclusion)]
-```
-
-Example:
-```
-[adult: (?x rdf:type http://ex.org/Person)
-        (?x http://ex.org/age ?age)
-        greaterThan(?age, 17)
-    -> (?x rdf:type http://ex.org/Adult)]
-```
-
-Rules use full URIs except for `rdf:type` which Jena recognizes as a shorthand.
-
-### Forward vs Backward Chaining
-- **Forward (materialize)**: `infer()` / `inferWithRules()` — compute all entailed triples, store them, then query. Best for multiple queries on the same projection.
-- **Backward (on-the-fly)**: `query(..., profile)` / `queryWithRules()` — reason during query execution, no materialization. Best for one-shot queries.
-
-### Layered Reasoning
-Custom rules can be combined with built-in profiles. The profile runs first (e.g., RDFS infers type hierarchy), then custom rules fire on the inferred model:
-
-```cypher
-CALL n20s.graph.queryWithRules('g', 'SELECT ...', '[custom rules]', 'RDFS')
-```
-
-## SHACL Validation
-SHACL shapes are projected as regular triples (typically from a Turtle property on a `(:SHACLRules)` node). The `validate()` procedure parses shapes from the graph and validates data against them. Supports property constraints and SPARQL-based constraints.
-
-**Important**: SPARQL queries inside `sh:select` need their own `PREFIX` declarations — they don't inherit from the surrounding Turtle.
+Choosing: self-contained per-entity knowledge → Turtle property. Fine-grained triple-level scoping → Triple nodes. Shared knowledge (ontology, shapes) → Turtle property on dedicated `(:Ontology)` / `(:SHACLRules)` nodes. Strategies mix freely in one projection.
 
 ## API Quick Reference
 
 | Procedure / Function | Purpose |
 |---|---|
-| `n20s.graph.project(name, s, p, o, [ifExists])` | Aggregating function: collect (s,p,o) rows into a named graph. Default ifExists: `'replace'`. |
-| `n20s.graph.addTurtle(name, turtle, [ifExists])` | Aggregating function OR procedure: collect/parse Turtle strings into a named graph. Default ifExists: `'append'`. |
-| `n20s.graph.query(name, sparql, [profile])` | SPARQL SELECT, optional backward chaining |
-| `n20s.graph.queryWithRules(name, sparql, rules, [profile])` | SPARQL SELECT with custom rules, optional profile underneath |
+| `n20s.graph.project(name, s, p, o, [ifExists])` | Aggregating function: collect (s,p,o) rows into a named graph. Default ifExists: `'replace'` |
+| `n20s.graph.addTurtle(name, turtle, [ifExists])` | Aggregating function OR procedure: collect/parse Turtle. Default ifExists: `'append'` |
+| `n20s.graph.query(name, sparql, [profile])` | SPARQL SELECT; optional backward-chaining profile |
+| `n20s.graph.queryWithRules(name, sparql, rules, [profile])` | SPARQL SELECT with custom rules; optional profile layered underneath |
 | `n20s.graph.construct(name, sparql)` | SPARQL CONSTRUCT, returns triples |
-| `n20s.graph.infer(name, profile)` | Forward chaining with built-in profile (axiomatic triples filtered) |
+| `n20s.graph.infer(name, profile)` | Forward chaining, materializes (axiomatic triples filtered) |
 | `n20s.graph.inferWithRules(name, rules, [profile])` | Forward chaining with custom rules (axiomatic triples filtered) |
-| `n20s.graph.validate(name)` | SHACL validation |
+| `n20s.graph.validate(name)` | SHACL validation (shapes projected in the same graph) |
 | `n20s.graph.toTurtle(name)` | Serialize graph as Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples |
-| `n20s.graph.list()` | List all in-memory graphs |
-| `n20s.graph.drop(name)` | Drop a graph and free memory |
-| `n20s.version()` | Plugin and Jena versions |
+| `n20s.graph.list()` | List in-memory graphs |
+| `n20s.graph.drop(name)` | Drop a graph, free memory |
+| `n20s.version()` | n20s + Jena versions |
 
-### ifExists parameter
+**Profiles**: `RDFS`, `OWL_MICRO`, `OWL_MINI`, `OWL` — Jena rule-based reasoners, not full OWL DL (no cardinality, no negation).
 
-Both `project()` and `addTurtle()` accept an optional `ifExists` parameter controlling what happens when the graph already exists:
+**ifExists** (`project` and `addTurtle`): `'replace'` (drop + recreate), `'append'` (merge, create if needed), `'fail'` (error if exists).
 
-| Value | Behavior | Default for |
-|---|---|---|
-| `'replace'` | Drop existing graph and create new | `project()` |
-| `'append'` | Merge into existing graph (create if needed) | `addTurtle()` |
-| `'fail'` | Error if graph already exists | — |
+**Chaining**: forward (`infer*` — materialize once, query many) vs backward (`query(..., profile)` / `queryWithRules` — reason during the query, no materialization). Backward for one-shot checks; forward for repeated queries or Turtle export of entailments.
+
+**Layering**: in `*WithRules`, the optional profile runs first (e.g., RDFS computes subclass closure), then custom rules fire on the enriched model. This is how a rule targeting a superclass catches all subclasses.
+
+## Critical Gotchas
+
+Hard-won knowledge — violating these produces silent wrong answers or hours of debugging. Full rationale in [BEST_PRACTICES.md](BEST_PRACTICES.md).
+
+1. **Graph names are global and shared.** Use unique names per operation (`'check_' + uuid`); always drop in a `finally`. Fixed names are not concurrency-safe.
+2. **`project()` replaces, `addTurtle()` appends** by default. Mixing them without explicit `ifExists` wipes data.
+3. **Use `xsd:double`, not `xsd:decimal`, for rule-compared numbers.** Cypher's `toString()` emits scientific notation (`8.03E-4`) which `xsd:decimal` rejects. Both operands of a builtin must be the same XSD type.
+4. **Jena rules use full IRIs** — no prefixes; only `rdf:type` has a shorthand.
+5. **SPARQL inside `sh:select` must be single-line with its own `PREFIX` declarations** — it inherits nothing from the surrounding Turtle.
+6. **`focusNode: null` + severity `INFO` from `validate()` means the graph conforms** — filter it before reporting violations.
+7. **Every Turtle cargo string must be self-contained** (own `@prefix` lines) — any Cypher scope may select any subset.
+8. **URI minting must be one shared convention.** Runtime-constructed URIs (e.g., injected computed values) that don't exactly match the cargo's URIs silently detach — validations then pass vacuously.
+9. **Never split `.cypher` files on bare `;`** — Turtle cargo uses `;` as its predicate separator. Split on `;\n` or use a real parser.
+10. **Turtle-in-Cypher**: single-quoted Cypher string, double-quoted Turtle literals, real newlines, escape `\` and `'`.
+11. **`rdfs:label` everything** — rules and SPARQL results need human-readable names.
+12. **SHACL + big shape sets + RDFS is slow** — for targeted checks, build a minimal inline shape at runtime.
+
+## Agent Integration Pattern
+
+When building LLM-agent tools (MCP or function calling) on n20s:
+
+- **Tools encapsulate the full scope-project-reason-drop cycle** behind domain-level signatures (`validate_formulation(ingredients)`). The LLM never writes SPARQL and cannot skip validation steps.
+- **Inject Cypher-computed values as typed triples** (`cosmo:X cosmo:actualConcentration "0.06"^^xsd:double`) so rules can compare structural computation against ontology limits.
+- **Return structured verdicts**: `{status: "PASS"|"FAIL", violations: [...], shacl: [...]}` — agents act on fields, not prose.
+- **Attach a `cypher_audit_trail`** to every tool response: the exact statements executed (log-then-run, parameters as comments), copy-paste runnable in Neo4j Browser. Instruct the LLM to render it in a fenced `cypher` block. This makes agent reasoning reproducible — the core trust device.
+
+Reference implementation: [n20s-cosmo-rd](https://github.com/halftermeyer/n20s-cosmo-rd) (MCP server + dual-mode React app).
 
 ## What n20s Is NOT
 
-- **Not a replacement for n10s (neosemantics).** n10s maps RDF to LPG — a mature, battle-tested ETL tool. n20s keeps RDF alive for reasoning without mapping. They're complementary.
-- **Not a triple store.** In-memory graphs are ephemeral. They exist for the duration of a reasoning task, then get dropped.
-- **Not a SPARQL endpoint.** n20s is invoked from Cypher, not from external SPARQL clients.
-- **Not full OWL DL.** Jena's rule-based reasoners handle RDFS and common OWL patterns. For full OWL DL (cardinality, negation, disjointness), use a dedicated reasoner like Pellet.
-
-## Relationship to n10s
-
-n10s (neosemantics) is the established Neo4j RDF tool. It imports RDF, maps classes to labels, properties to node attributes. It works well for static RDF data that you want to query with Cypher.
-
-n20s starts from a different premise: some workloads need RDF semantics kept alive — for inference, validation, provenance — alongside LPG structure. The two tools can coexist. If your RDF data is static and you just need Cypher queries, use n10s. If you need live reasoning on scoped subsets of your graph, use n20s.
+- **Not a replacement for n10s (neosemantics).** n10s maps RDF into LPG (ETL). n20s keeps RDF alive for reasoning, no mapping. Complementary: n10s to import, n20s to reason.
+- **Not a triple store.** In-memory graphs are ephemeral by design.
+- **Not a SPARQL endpoint.** Invoked from Cypher or the REST API, not by external SPARQL clients.
+- **Not full OWL DL.** No cardinality/negation reasoning. For tableaux-grade DL, use a dedicated reasoner — though with scope-first, RDFS + custom rules covers most production needs.
 
 ## Building Demos
 
-When building a demo on n20s, the most compelling pattern is:
+The compelling arc:
+1. Start with an **LPG problem people recognize** (patients+drugs, products+ingredients, services+dependencies).
+2. Add **RDF cargo** where classification, rules, or ontological structure matters.
+3. Show a **question Cypher alone can't answer** (type inference, hierarchy traversal, rule application).
+4. Show **scope first**: Cypher narrows, n20s reasons.
+5. Prefer **real ontologies/vocabularies** (ChEBI, ATC, MeSH, SKOS, EU regulatory).
 
-1. **Start with an LPG problem** that users recognize (patients + drugs, products + ingredients, services + dependencies)
-2. **Add RDF knowledge as cargo** where classification, rules, or ontological structure matters
-3. **Show a question that Cypher alone can't answer** (requires type inference, class hierarchy traversal, or rule application)
-4. **Show the "scope first" workflow** — Cypher narrows, n20s reasons
-5. **Use real ontologies when possible** — life sciences (ChEBI, ATC, MeSH), SKOS taxonomies, EU regulatory vocabularies. RDF's value proposition is strongest when leveraging existing semantic web resources.
-
-### Demo Conventions
-- Use `;` to separate statements in `.cypher` files
-- Step 0 should clean both Neo4j data AND n20s in-memory graphs
-- Turtle string properties use single-quote Cypher delimiters with double-quote Turtle literals inside
-- SPARQL inside `sh:select` must be a single-line double-quoted string with its own PREFIX declarations
-- Browser bookmarks go in `demo_bookmarks/` as CSV (double quotes escaped as `""`)
+Conventions:
+- One statement per line in `.cypher` files; split on `;\n`, never bare `;`.
+- Step 0 cleans both Neo4j data AND n20s in-memory graphs.
+- Browser bookmarks as CSV in `demo_bookmarks/` (double quotes escaped as `""`).
+- In cypher-shell, single-quote passwords containing `!` (zsh history expansion).
 
 ## Project Structure (Multi-Module Maven)
 
-The repo is a three-module Maven project:
-
 ```
 neo4j-n20s/
-├── n20s-core/      Shared Jena reasoning engine — GraphCatalog, GraphEngine, TripleParser, model POJOs
-├── n20s-plugin/    Neo4j @Procedure wrappers — thin delegates to GraphEngine, includes shade plugin
-├── n20s-server/    Javalin HTTP server — REST endpoints mirroring plugin procedures, Dockerfile
-└── pom.xml         Parent POM with shared dependency versions
+├── n20s-core/      GraphCatalog, GraphEngine, TripleParser, model POJOs — zero Neo4j dependency
+├── n20s-plugin/    @Procedure wrappers (one-line delegates to GraphEngine) + shade plugin + demos
+├── n20s-server/    Javalin HTTP server (13 REST endpoints) + Dockerfile
+└── pom.xml         Parent POM, shared dependency versions
 ```
 
-- **n20s-core** has zero Neo4j dependency. It contains `GraphCatalog` (named graph registry), `GraphEngine` (all Jena reasoning logic), `TripleParser` (literal/blank-node parsing), and result POJOs.
-- **n20s-plugin** depends on n20s-core + Neo4j (provided). Each `@Procedure` method is a one-liner: `return GraphEngine.query(...).stream()`. The shade plugin bundles and relocates Jena for classpath safety.
-- **n20s-server** depends on n20s-core + Javalin + Jackson. Exposes 13 REST endpoints that delegate to `GraphEngine`. Ships as a runnable fat JAR (22MB) with a multi-stage Dockerfile.
+- **n20s-core**: all Jena logic. `GraphCatalog` (named-graph registry, `ConcurrentHashMap`), `GraphEngine` (reasoning operations), `TripleParser` (literal/blank-node parsing, null guards).
+- **n20s-plugin**: depends on core + Neo4j (provided). Shade plugin relocates Jena under `n20s.shaded.*` to avoid classpath conflicts.
+- **n20s-server**: depends on core + Javalin + Jackson. Fat JAR (~22 MB), starts in <200 ms.
 
-### When to use which
+**Deployment**: plugin for self-managed Neo4j (in-process, Cypher); server for Aura/managed (HTTP sidecar — app scopes over bolt, sends Turtle over REST). Same engine, identical reasoning results; build a one-flag dual-mode abstraction in clients.
 
-- **Plugin**: self-managed Neo4j where you can install JARs. Procedures are called directly from Cypher.
-- **Server**: managed services (Aura) or environments where plugins can't be installed. The application scopes data with Cypher via bolt, then sends Turtle to the server for reasoning over HTTP.
+## REST API (n20s-server)
 
-Both use the exact same Jena reasoning engine underneath.
+JSON in, JSON out. `profile` optional (omit or `""` for no reasoning). Errors: `{"error": "message"}` with 400 (bad input), 404 (graph not found), 500 (unexpected).
 
-### REST API (n20s-server)
+**Env vars**: `PORT` (default 7474), `CORS=true` (browser clients).
 
-All request bodies are JSON. All responses are JSON. The `profile` field is optional — omit it or set to `""` for no reasoning. Errors return `{"error": "message"}` with appropriate HTTP status (400 for bad input, 404 for missing graph, 500 for unexpected errors).
-
-**Environment variables**: `PORT` (default 7474), `CORS` (set to `true` to enable CORS for browser clients).
-
-#### `POST /graph/{name}/turtle` — Add Turtle triples
+### `POST /graph/{name}/turtle` — add Turtle
 
 ```json
-// Request — single string
+// single, batch, or both — ifExists: "append" (default) | "replace" | "fail"
 {"turtle": "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}
+{"turtles": ["…", "…"], "ifExists": "replace"}
 
-// Request — batch (array of turtle strings)
-{"turtles": ["@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .",
-             "@prefix ex: <http://ex.org/> . ex:Athena a ex:God ."]}
-
-// Both can be combined, and ifExists is optional: "append" (default), "replace", "fail"
-{"turtle": "...", "turtles": ["...", "..."], "ifExists": "replace"}
-
-// Response
-{"graphName": "test", "triplesBefore": 0, "triplesAfter": 2, "added": 2}
+// → {"graphName": "g", "triplesBefore": 0, "triplesAfter": 2, "added": 2}
 ```
 
-#### `POST /graph/{name}/triples` — Project (s,p,o) triples
+### `POST /graph/{name}/triples` — project (s,p,o) triples
 
 ```json
-// Request — array of triples. Optional query param ?ifExists=append|replace|fail (default: replace)
-[
-  {"s": "http://ex.org/Zeus", "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "o": "http://ex.org/God"},
-  {"s": "http://ex.org/Zeus", "p": "http://ex.org/name", "o": "\"Zeus\"@en"}
-]
+// body: array of triples; ?ifExists= query param (default: replace)
+[{"s": "http://ex.org/Zeus", "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "o": "http://ex.org/God"},
+ {"s": "http://ex.org/Zeus", "p": "http://ex.org/name", "o": "\"Zeus\"@en"}]
 
-// Response
-{"graphName": "test", "tripleCount": 2, "status": "projected"}
+// → {"graphName": "g", "tripleCount": 2, "status": "projected"}
 ```
 
-#### `POST /graph/{name}/query` — SPARQL SELECT
+Object encoding: URIs bare, blank nodes `_:id`, literals `"value"`, `"value"@lang`, `"value"^^<datatypeURI>`.
+
+### `POST /graph/{name}/query` — SPARQL SELECT
 
 ```json
-// Request
 {"sparql": "SELECT ?x WHERE { ?x a <http://ex.org/God> }", "profile": "RDFS"}
 
-// Response — array of {row} objects
-[
-  {"row": {"x": "http://ex.org/Zeus"}},
-  {"row": {"x": "http://ex.org/Athena"}}
-]
+// → [{"row": {"x": "http://ex.org/Zeus"}}, {"row": {"x": "http://ex.org/Athena"}}]
 ```
 
-#### `POST /graph/{name}/queryWithRules` — SPARQL SELECT with custom rules
+### `POST /graph/{name}/queryWithRules`
 
 ```json
-// Request
-{
-  "sparql": "SELECT ?x WHERE { ?x a <http://ex.org/Being> }",
-  "rules": "[godBeing: (?x rdf:type http://ex.org/God) -> (?x rdf:type http://ex.org/Being)]",
-  "profile": "RDFS"
-}
+{"sparql": "SELECT ?x WHERE { ?x a <http://ex.org/Being> }",
+ "rules": "[godBeing: (?x rdf:type http://ex.org/God) -> (?x rdf:type http://ex.org/Being)]",
+ "profile": "RDFS"}
 
-// Response — same shape as query
-[{"row": {"x": "http://ex.org/Zeus"}}]
+// → same shape as /query
 ```
 
-#### `POST /graph/{name}/construct` — SPARQL CONSTRUCT
+### `POST /graph/{name}/construct`
 
 ```json
-// Request
 {"sparql": "CONSTRUCT { ?x <http://ex.org/is> <http://ex.org/divine> } WHERE { ?x a <http://ex.org/God> }"}
 
-// Response — array of triples
-[{"subject": "http://ex.org/Zeus", "predicate": "http://ex.org/is", "object": "http://ex.org/divine"}]
+// → [{"subject": "…", "predicate": "…", "object": "…"}]
 ```
 
-#### `POST /graph/{name}/infer` — Forward chaining (materialize)
+### `POST /graph/{name}/infer` and `/inferWithRules`
 
 ```json
-// Request
-{"profile": "RDFS"}
+{"profile": "RDFS"}                                    // infer
+{"rules": "[…]", "profile": "RDFS"}                    // inferWithRules
 
-// Response
-{"graphName": "test", "triplesBefore": 3, "triplesAfter": 42, "newTriples": 39, "profile": "RDFS"}
+// → {"graphName": "g", "triplesBefore": 3, "triplesAfter": 9, "newTriples": 6, "profile": "RDFS"}
 ```
 
-#### `POST /graph/{name}/inferWithRules` — Custom rules (forward, materialize)
+### `POST /graph/{name}/validate` — SHACL (no body needed)
 
 ```json
-// Request
-{
-  "rules": "[adult: (?x rdf:type http://ex.org/Person) (?x http://ex.org/age ?a) greaterThan(?a, 17) -> (?x rdf:type http://ex.org/Adult)]",
-  "profile": "RDFS"
-}
-
-// Response
-{"graphName": "test", "triplesBefore": 4, "triplesAfter": 8, "newTriples": 4, "profile": "CUSTOM (1 rules)"}
-```
-
-#### `POST /graph/{name}/validate` — SHACL validation
-
-No request body required (or send `{}`).
-
-```json
-// Response — conforms
+// conforms:
 [{"focusNode": null, "path": null, "severity": "INFO", "message": "Validation passed — graph conforms to all shapes.", "value": null, "sourceShape": null}]
-
-// Response — violations
-[{"focusNode": "http://ex.org/Alice", "path": "http://ex.org/name", "severity": "Violation", "message": "Person must have a name", "value": null, "sourceShape": "..."}]
+// violations:
+[{"focusNode": "http://ex.org/Alice", "path": "http://ex.org/name", "severity": "Violation", "message": "…", "value": null, "sourceShape": "…"}]
 ```
 
-#### `GET /graph/{name}/turtle` — Export as Turtle
+### Reads and management
 
 ```json
-// Response
-{"graphName": "test", "tripleCount": 2, "turtle": "@prefix ex: <http://ex.org/> .\nex:Zeus a ex:God .\n"}
-```
-
-#### `GET /graph/{name}/triples` — Stream all triples
-
-```json
-// Response
-[
-  {"subject": "http://ex.org/Zeus", "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "object": "http://ex.org/God"},
-  {"subject": "http://ex.org/Zeus", "predicate": "http://ex.org/name", "object": "\"Zeus\"@en"}
-]
-```
-
-#### `GET /graph` — List all graphs
-
-```json
-// Response
-[{"graphName": "test", "tripleCount": 3}, {"graphName": "other", "tripleCount": 12}]
-```
-
-#### `DELETE /graph/{name}` — Drop a graph
-
-```json
-// Response
-{"graphName": "test", "status": "dropped"}
-```
-
-#### `GET /version`
-
-```json
-// Response
-{"version": "server-dev", "jenaVersion": "6.1.0"}
+GET    /graph/{name}/turtle   → {"graphName": "g", "tripleCount": 2, "turtle": "…"}
+GET    /graph/{name}/triples  → [{"subject": "…", "predicate": "…", "object": "…"}]
+GET    /graph                 → [{"graphName": "g", "tripleCount": 3}]
+DELETE /graph/{name}          → {"graphName": "g", "status": "dropped"}
+GET    /version               → {"version": "…", "jenaVersion": "6.1.0"}
 ```
 
 ## Technical Details
 
-- **Runtime**: Apache Jena 6.1. Plugin bundles it in a fat JAR via maven-shade-plugin. Server bundles it via a separate shade config.
-- **Package relocation** (plugin only): all Jena dependencies relocated under `n20s.shaded.*` to avoid classpath conflicts with Neo4j. The server has no relocation (no Neo4j on the classpath).
-- **Memory**: Jena models are heap-resident (~200-300 bytes per triple). In the plugin, shared with Neo4j's JVM heap. In the server, its own JVM.
-- **Thread safety**: `GraphCatalog` uses `ConcurrentHashMap`. Individual Jena Models are not thread-safe — concurrent access to the same named graph from different transactions/requests is not supported.
-- **Neo4j compatibility** (plugin): 5.x, 2025.x, 2026.x. Java 17+.
-- **Server deployment**: runnable fat JAR (22MB), port via `PORT` env var (default 7474), multi-stage Dockerfile provided.
+- **Runtime**: Apache Jena 6.1, bundled in both plugin (shaded/relocated) and server fat JARs.
+- **Memory**: heap-resident models, ~200–300 bytes/triple. Plugin shares Neo4j's heap; server has its own JVM.
+- **Thread safety**: catalog is a `ConcurrentHashMap`; individual Jena models are **not** thread-safe — single writer per graph name.
+- **Isolation**: catalog is JVM-global — shared across users and databases in plugin mode. Use unique names; do not treat projected graphs as access-controlled.
+- **Compatibility**: Neo4j 5.x / 2025.x / 2026.x, Java 17+.
+- **Testing**: 31 core (pure Jena, fast) + 31 plugin (Neo4j harness) + 18 server (HTTP) tests; CI runs all on every push.

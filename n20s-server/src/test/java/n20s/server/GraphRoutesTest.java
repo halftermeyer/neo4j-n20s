@@ -278,5 +278,29 @@ class GraphRoutesTest {
         var resp = post("/graph/err/query",
                 "{\"sparql\": \"NOT VALID SPARQL\"}");
         assertEquals(400, resp.statusCode());
+        assertTrue(resp.body().contains("\"error\""), "Error response should be JSON with error field");
+    }
+
+    @Test
+    void testQuery_withProfile() throws Exception {
+        post("/graph/prof/turtle",
+                """
+                {"turtle": "@prefix ex: <http://ex.org/> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . ex:Zeus a ex:God . ex:God rdfs:subClassOf ex:Being ."}
+                """);
+
+        var resp = post("/graph/prof/query",
+                "{\"sparql\": \"SELECT ?x WHERE { ?x a <http://ex.org/Being> }\", \"profile\": \"RDFS\"}");
+        assertEquals(200, resp.statusCode());
+        assertTrue(resp.body().contains("Zeus"));
+    }
+
+    @Test
+    void testValidate_emptyBody() throws Exception {
+        post("/graph/val_empty/turtle",
+                "{\"turtle\": \"@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .\"}");
+
+        // validate with empty string body (no JSON)
+        var resp = post("/graph/val_empty/validate", "");
+        assertEquals(200, resp.statusCode());
     }
 }

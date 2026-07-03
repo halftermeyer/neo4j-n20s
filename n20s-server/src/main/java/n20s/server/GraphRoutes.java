@@ -12,12 +12,15 @@ public final class GraphRoutes {
     private GraphRoutes() {}
 
     public static void register(Javalin app) {
-        // Error handling
+        // JSON error handling for all exceptions — no plain text "Server Error"
         app.exception(IllegalArgumentException.class, (e, ctx) -> {
             ctx.status(404).json(Map.of("error", e.getMessage()));
         });
         app.exception(RuntimeException.class, (e, ctx) -> {
             ctx.status(400).json(Map.of("error", e.getMessage()));
+        });
+        app.exception(Exception.class, (e, ctx) -> {
+            ctx.status(500).json(Map.of("error", e.getMessage() != null ? e.getMessage() : e.getClass().getName()));
         });
 
         // Version
@@ -56,7 +59,7 @@ public final class GraphRoutes {
         // Infer with rules
         app.post("/graph/{name}/inferWithRules", GraphRoutes::handleInferWithRules);
 
-        // Validate
+        // Validate — accepts empty body or no body
         app.post("/graph/{name}/validate", ctx ->
                 ctx.json(GraphEngine.validate(ctx.pathParam("name"))));
     }
@@ -80,15 +83,15 @@ public final class GraphRoutes {
     private static void handleQuery(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(QueryRequest.class);
-        ctx.json(GraphEngine.query(name, body.sparql,
-                body.reasoningProfile != null ? body.reasoningProfile : ""));
+        String profile = body.profile != null ? body.profile : "";
+        ctx.json(GraphEngine.query(name, body.sparql, profile));
     }
 
     private static void handleQueryWithRules(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(QueryWithRulesRequest.class);
-        ctx.json(GraphEngine.queryWithRules(name, body.sparql, body.rules,
-                body.reasoningProfile != null ? body.reasoningProfile : ""));
+        String profile = body.profile != null ? body.profile : "";
+        ctx.json(GraphEngine.queryWithRules(name, body.sparql, body.rules, profile));
     }
 
     private static void handleConstruct(Context ctx) {
@@ -106,8 +109,8 @@ public final class GraphRoutes {
     private static void handleInferWithRules(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(InferWithRulesRequest.class);
-        ctx.json(GraphEngine.inferWithRules(name, body.rules,
-                body.reasoningProfile != null ? body.reasoningProfile : ""));
+        String profile = body.profile != null ? body.profile : "";
+        ctx.json(GraphEngine.inferWithRules(name, body.rules, profile));
     }
 
     // ── Request DTOs ────────────────────────────────────────────
@@ -124,13 +127,13 @@ public final class GraphRoutes {
 
     public static class QueryRequest {
         public String sparql;
-        public String reasoningProfile;
+        public String profile;
     }
 
     public static class QueryWithRulesRequest {
         public String sparql;
         public String rules;
-        public String reasoningProfile;
+        public String profile;
     }
 
     public static class SparqlRequest {
@@ -143,6 +146,6 @@ public final class GraphRoutes {
 
     public static class InferWithRulesRequest {
         public String rules;
-        public String reasoningProfile;
+        public String profile;
     }
 }

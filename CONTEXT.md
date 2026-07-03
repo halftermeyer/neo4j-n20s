@@ -176,27 +176,141 @@ Both use the exact same Jena reasoning engine underneath.
 
 ### REST API (n20s-server)
 
-| Plugin procedure | Method | Endpoint |
-|---|---|---|
-| `n20s.graph.addTurtle(name, turtle)` | POST | `/graph/{name}/turtle` |
-| `n20s.graph.project(name, s, p, o)` | POST | `/graph/{name}/triples` |
-| `n20s.graph.query(name, sparql, profile)` | POST | `/graph/{name}/query` |
-| `n20s.graph.queryWithRules(name, sparql, rules, profile)` | POST | `/graph/{name}/queryWithRules` |
-| `n20s.graph.construct(name, sparql)` | POST | `/graph/{name}/construct` |
-| `n20s.graph.infer(name, profile)` | POST | `/graph/{name}/infer` |
-| `n20s.graph.inferWithRules(name, rules, profile)` | POST | `/graph/{name}/inferWithRules` |
-| `n20s.graph.validate(name)` | POST | `/graph/{name}/validate` |
-| `n20s.graph.toTurtle(name)` | GET | `/graph/{name}/turtle` |
-| `n20s.graph.triples(name)` | GET | `/graph/{name}/triples` |
-| `n20s.graph.list()` | GET | `/graph` |
-| `n20s.graph.drop(name)` | DELETE | `/graph/{name}` |
-| `n20s.version()` | GET | `/version` |
+All request bodies are JSON. All responses are JSON. The `profile` field is optional — omit it or set to `""` for no reasoning. Errors return `{"error": "message"}` with appropriate HTTP status (400 for bad input, 404 for missing graph, 500 for unexpected errors).
 
-Request bodies are JSON. Example:
-```bash
-curl -X POST http://localhost:7474/graph/test/turtle \
-  -H 'Content-Type: application/json' \
-  -d '{"turtle":"@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}'
+**Environment variables**: `PORT` (default 7474), `CORS` (set to `true` to enable CORS for browser clients).
+
+#### `POST /graph/{name}/turtle` — Add Turtle triples
+
+```json
+// Request
+{"turtle": "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}
+
+// Response
+{"graphName": "test", "triplesBefore": 0, "triplesAfter": 1, "added": 1}
+```
+
+#### `POST /graph/{name}/triples` — Project (s,p,o) triples
+
+```json
+// Request — array of triples
+[
+  {"s": "http://ex.org/Zeus", "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "o": "http://ex.org/God"},
+  {"s": "http://ex.org/Zeus", "p": "http://ex.org/name", "o": "\"Zeus\"@en"}
+]
+
+// Response
+{"graphName": "test", "tripleCount": 2, "status": "projected"}
+```
+
+#### `POST /graph/{name}/query` — SPARQL SELECT
+
+```json
+// Request
+{"sparql": "SELECT ?x WHERE { ?x a <http://ex.org/God> }", "profile": "RDFS"}
+
+// Response — array of {row} objects
+[
+  {"row": {"x": "http://ex.org/Zeus"}},
+  {"row": {"x": "http://ex.org/Athena"}}
+]
+```
+
+#### `POST /graph/{name}/queryWithRules` — SPARQL SELECT with custom rules
+
+```json
+// Request
+{
+  "sparql": "SELECT ?x WHERE { ?x a <http://ex.org/Being> }",
+  "rules": "[godBeing: (?x rdf:type http://ex.org/God) -> (?x rdf:type http://ex.org/Being)]",
+  "profile": "RDFS"
+}
+
+// Response — same shape as query
+[{"row": {"x": "http://ex.org/Zeus"}}]
+```
+
+#### `POST /graph/{name}/construct` — SPARQL CONSTRUCT
+
+```json
+// Request
+{"sparql": "CONSTRUCT { ?x <http://ex.org/is> <http://ex.org/divine> } WHERE { ?x a <http://ex.org/God> }"}
+
+// Response — array of triples
+[{"subject": "http://ex.org/Zeus", "predicate": "http://ex.org/is", "object": "http://ex.org/divine"}]
+```
+
+#### `POST /graph/{name}/infer` — Forward chaining (materialize)
+
+```json
+// Request
+{"profile": "RDFS"}
+
+// Response
+{"graphName": "test", "triplesBefore": 3, "triplesAfter": 42, "newTriples": 39, "profile": "RDFS"}
+```
+
+#### `POST /graph/{name}/inferWithRules` — Custom rules (forward, materialize)
+
+```json
+// Request
+{
+  "rules": "[adult: (?x rdf:type http://ex.org/Person) (?x http://ex.org/age ?a) greaterThan(?a, 17) -> (?x rdf:type http://ex.org/Adult)]",
+  "profile": "RDFS"
+}
+
+// Response
+{"graphName": "test", "triplesBefore": 4, "triplesAfter": 8, "newTriples": 4, "profile": "CUSTOM (1 rules)"}
+```
+
+#### `POST /graph/{name}/validate` — SHACL validation
+
+No request body required (or send `{}`).
+
+```json
+// Response — conforms
+[{"focusNode": null, "path": null, "severity": "INFO", "message": "Validation passed — graph conforms to all shapes.", "value": null, "sourceShape": null}]
+
+// Response — violations
+[{"focusNode": "http://ex.org/Alice", "path": "http://ex.org/name", "severity": "Violation", "message": "Person must have a name", "value": null, "sourceShape": "..."}]
+```
+
+#### `GET /graph/{name}/turtle` — Export as Turtle
+
+```json
+// Response
+{"graphName": "test", "tripleCount": 2, "turtle": "@prefix ex: <http://ex.org/> .\nex:Zeus a ex:God .\n"}
+```
+
+#### `GET /graph/{name}/triples` — Stream all triples
+
+```json
+// Response
+[
+  {"subject": "http://ex.org/Zeus", "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "object": "http://ex.org/God"},
+  {"subject": "http://ex.org/Zeus", "predicate": "http://ex.org/name", "object": "\"Zeus\"@en"}
+]
+```
+
+#### `GET /graph` — List all graphs
+
+```json
+// Response
+[{"graphName": "test", "tripleCount": 3}, {"graphName": "other", "tripleCount": 12}]
+```
+
+#### `DELETE /graph/{name}` — Drop a graph
+
+```json
+// Response
+{"graphName": "test", "status": "dropped"}
+```
+
+#### `GET /version`
+
+```json
+// Response
+{"version": "server-dev", "jenaVersion": "6.1.0"}
 ```
 
 ## Technical Details

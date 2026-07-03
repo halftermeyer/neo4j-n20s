@@ -262,7 +262,7 @@ docker build -f n20s-server/Dockerfile -t n20s-server .
 docker run -p 7474:7474 n20s-server
 ```
 
-The server starts on port 7474 (configurable via `PORT` env var). Your application scopes data with Cypher on Aura, collects Turtle strings, and sends them to the server for reasoning.
+The server starts on port 7474 (configurable via `PORT` env var). Set `CORS=true` for browser-based clients. Your application scopes data with Cypher on Aura, collects Turtle strings, and sends them to the server for reasoning.
 
 ```bash
 # Add triples

@@ -368,6 +368,11 @@ n20s graphs are **heap-resident** Apache Jena models. Keep these guidelines in m
 - **Drop when done.** Always call `n20s.graph.drop()` after use. In-memory graphs survive across transactions and are only freed on drop or Neo4j restart.
 - **Monitor with `n20s.graph.list()`.** Check triple counts to spot graphs that weren't cleaned up.
 
+## Limitations
+
+- **Global catalog (plugin).** In-memory graphs are stored in a JVM-wide singleton shared across all databases and all users. Any user with procedure access can list, query, or drop graphs created by another user — including graphs projected from a database they have no access to. This is fine for single-user or demo environments; for shared instances, use unique graph names per session (e.g., `"check_" + username`) and drop promptly.
+- **Single-writer semantics.** Jena's in-memory Models are not thread-safe. Two concurrent `addTurtle()` calls on the same graph name, or a `drop()` while another transaction is mid-query, is undefined behavior. Stick to one writer per graph name at a time. Concurrent access to *different* graph names is safe (the catalog itself is a `ConcurrentHashMap`).
+
 ## Requirements
 
 - Neo4j 5.x / 2025.x / 2026.x

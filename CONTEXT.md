@@ -105,21 +105,31 @@ SHACL shapes are projected as regular triples (typically from a Turtle property 
 
 ## API Quick Reference
 
-| Procedure | Purpose |
+| Procedure / Function | Purpose |
 |---|---|
-| `n20s.graph.project(name, s, p, o)` | Aggregating function: collect (s,p,o) rows into a named graph |
-| `n20s.graph.addTurtle(name, turtle)` | Parse Turtle string into a named graph (creates if needed) |
+| `n20s.graph.project(name, s, p, o, [ifExists])` | Aggregating function: collect (s,p,o) rows into a named graph. Default ifExists: `'replace'`. |
+| `n20s.graph.addTurtle(name, turtle, [ifExists])` | Aggregating function OR procedure: collect/parse Turtle strings into a named graph. Default ifExists: `'append'`. |
 | `n20s.graph.query(name, sparql, [profile])` | SPARQL SELECT, optional backward chaining |
 | `n20s.graph.queryWithRules(name, sparql, rules, [profile])` | SPARQL SELECT with custom rules, optional profile underneath |
 | `n20s.graph.construct(name, sparql)` | SPARQL CONSTRUCT, returns triples |
-| `n20s.graph.infer(name, profile)` | Forward chaining with built-in profile |
-| `n20s.graph.inferWithRules(name, rules, [profile])` | Forward chaining with custom rules, optional profile underneath |
+| `n20s.graph.infer(name, profile)` | Forward chaining with built-in profile (axiomatic triples filtered) |
+| `n20s.graph.inferWithRules(name, rules, [profile])` | Forward chaining with custom rules (axiomatic triples filtered) |
 | `n20s.graph.validate(name)` | SHACL validation |
 | `n20s.graph.toTurtle(name)` | Serialize graph as Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples |
 | `n20s.graph.list()` | List all in-memory graphs |
 | `n20s.graph.drop(name)` | Drop a graph and free memory |
 | `n20s.version()` | Plugin and Jena versions |
+
+### ifExists parameter
+
+Both `project()` and `addTurtle()` accept an optional `ifExists` parameter controlling what happens when the graph already exists:
+
+| Value | Behavior | Default for |
+|---|---|---|
+| `'replace'` | Drop existing graph and create new | `project()` |
+| `'append'` | Merge into existing graph (create if needed) | `addTurtle()` |
+| `'fail'` | Error if graph already exists | — |
 
 ## What n20s Is NOT
 
@@ -183,8 +193,8 @@ All request bodies are JSON. All responses are JSON. The `profile` field is opti
 #### `POST /graph/{name}/turtle` — Add Turtle triples
 
 ```json
-// Request
-{"turtle": "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God ."}
+// Request — optional ifExists: "append" (default), "replace", "fail"
+{"turtle": "@prefix ex: <http://ex.org/> . ex:Zeus a ex:God .", "ifExists": "append"}
 
 // Response
 {"graphName": "test", "triplesBefore": 0, "triplesAfter": 1, "added": 1}
@@ -193,7 +203,7 @@ All request bodies are JSON. All responses are JSON. The `profile` field is opti
 #### `POST /graph/{name}/triples` — Project (s,p,o) triples
 
 ```json
-// Request — array of triples
+// Request — array of triples. Optional query param ?ifExists=append|replace|fail (default: replace)
 [
   {"s": "http://ex.org/Zeus", "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "o": "http://ex.org/God"},
   {"s": "http://ex.org/Zeus", "p": "http://ex.org/name", "o": "\"Zeus\"@en"}

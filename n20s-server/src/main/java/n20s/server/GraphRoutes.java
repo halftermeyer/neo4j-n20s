@@ -67,17 +67,19 @@ public final class GraphRoutes {
     private static void handleAddTurtle(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(TurtleRequest.class);
-        ctx.json(GraphEngine.addTurtle(name, body.turtle));
+        String ifExists = body.ifExists != null ? body.ifExists : "append";
+        ctx.json(GraphEngine.addTurtle(name, body.turtle, ifExists));
     }
 
     private static void handleProjectTriples(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(TripleRequest[].class);
+        String ifExists = ctx.queryParam("ifExists") != null ? ctx.queryParam("ifExists") : "replace";
         List<String[]> triples = new java.util.ArrayList<>();
         for (var t : body) {
             triples.add(new String[]{t.s, t.p, t.o});
         }
-        ctx.json(GraphEngine.projectTriples(name, triples));
+        ctx.json(GraphEngine.projectTriples(name, triples, ifExists));
     }
 
     private static void handleQuery(Context ctx) {
@@ -117,6 +119,7 @@ public final class GraphRoutes {
 
     public static class TurtleRequest {
         public String turtle;
+        public String ifExists;
     }
 
     public static class TripleRequest {

@@ -43,21 +43,41 @@ CALL n20s.graph.drop('check');
 
 ## API
 
-### Aggregating Function
+### Aggregating Functions
 
 | Function | Description |
 |---|---|
-| `n20s.graph.project(name, s, p, o)` | Collect (s, p, o) rows into a named in-memory RDF graph |
+| `n20s.graph.project(name, s, p, o, [ifExists])` | Collect (s, p, o) rows into a named in-memory RDF graph |
+| `n20s.graph.addTurtle(name, turtle, [ifExists])` | Collect Turtle strings into a named in-memory RDF graph |
+
+Both accept an optional `ifExists` parameter:
+
+| Value | Behavior | Default for |
+|---|---|---|
+| `'replace'` | Drop existing graph and create new | `project()` |
+| `'append'` | Merge into existing graph (create if needed) | `addTurtle()` |
+| `'fail'` | Error if graph already exists (GDS-style) | — |
+
+```cypher
+// Collect Turtle from multiple nodes in one pass
+MATCH (i:Ingredient) WHERE i.turtle IS NOT NULL
+WITH n20s.graph.addTurtle('check', i.turtle) AS g
+RETURN g.graphName, g.tripleCount, g.added;
+
+// project() with append mode
+WITH n20s.graph.project('check', t.s, t.p, t.o, 'append') AS g
+RETURN g.tripleCount;
+```
 
 ### Procedures
 
 | Procedure | Description |
 |---|---|
-| `n20s.graph.addTurtle(name, turtle)` | Parse a Turtle string and add triples to a named graph (creates if needed) |
+| `n20s.graph.addTurtle(name, turtle, [ifExists])` | Parse a Turtle string and add triples to a named graph (creates if needed). Also available as aggregating function above. |
 | `n20s.graph.query(name, sparql)` | Run a SPARQL SELECT query |
 | `n20s.graph.query(name, sparql, profile)` | Run a SPARQL SELECT with backward-chaining inference (no `infer()` step needed) |
 | `n20s.graph.construct(name, sparql)` | Run a SPARQL CONSTRUCT query, return triples |
-| `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes all entailed triples |
+| `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes entailed triples (axiomatic triples filtered out) |
 | `n20s.graph.inferWithRules(name, rules, [profile])` | Custom rule-based inference (forward chaining, materializes). Optional profile layers RDFS/OWL underneath. |
 | `n20s.graph.queryWithRules(name, sparql, rules, [profile])` | SPARQL query with custom rules (backward chaining, no materialization). Optional profile layers RDFS/OWL underneath. |
 | `n20s.graph.validate(name)` | SHACL validation — shapes must be projected in the same graph |

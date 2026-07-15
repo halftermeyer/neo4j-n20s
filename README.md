@@ -222,12 +222,47 @@ All dependencies (Jena, SHACL) are bundled and relocated — no classpath confli
 Where plugins can't be installed, run **n20s-server** — the same Jena engine as an HTTP sidecar. Your application scopes with Cypher over bolt, collects Turtle cargo, and sends it to the server for reasoning.
 
 ```bash
-java -jar n20s-server-*.jar                       # port 7474; PORT=… to change; CORS=true for browsers
+java -jar n20s-server-*.jar                       # port 7474; PORT=… to change
 
 # or Docker
 docker build -f n20s-server/Dockerfile -t n20s-server .
 docker run -p 7474:7474 n20s-server
 ```
+
+Two environment variables:
+
+| Var | Default | Effect |
+|---|---|---|
+| `PORT` | `7474` | HTTP port. Note `7474` is also Neo4j's default HTTP port — set another (e.g. `PORT=7475`) if you run Neo4j on the same host. |
+| `CORS` | `false` | When `true`, sends `Access-Control-Allow-Origin: *` so browsers accept responses from any origin. |
+
+#### Calling from a browser (CORS)
+
+The server-to-server case (Python, a backend, `curl`) needs **nothing** — CORS is a browser rule, not a server one. It only matters when JavaScript running on one origin (`http://localhost:5173`) calls the n20s-server on another (`http://localhost:7474`); the browser blocks the response unless the server opts in. You have two ways to handle it:
+
+**A. Dev proxy (recommended — no CORS needed).** Let your dev server forward a path prefix to n20s-server. Same-origin from the browser's point of view, so the CORS rule never triggers. This is what the [cosmo-rd app](https://github.com/halftermeyer/n20s-cosmo-rd) does — `app/vite.config.ts`:
+
+```ts
+server: {
+  proxy: {
+    '/n20s': {                                   // browser calls fetch('/n20s/version')
+      target: process.env.VITE_N20S_URL || 'http://localhost:7475',
+      changeOrigin: true,
+      rewrite: (p) => p.replace(/^\/n20s/, ''),  // → http://localhost:7475/version
+    },
+  },
+}
+```
+
+Leave the server started plainly (no `CORS`). If the proxy target and the server's `PORT` disagree, you get a **502** from the dev server — they must match.
+
+**B. Enable CORS on the server (direct browser calls).** Skip the proxy and call the server's URL straight from the browser:
+
+```bash
+CORS=true java -jar n20s-server-*.jar            # allow any origin
+```
+
+`CORS=true` allows **every** origin (`*`). That's fine for local dev, but for anything exposed, front the server with a reverse proxy that restricts origins instead.
 
 ```bash
 # Batch-add turtle, then reason

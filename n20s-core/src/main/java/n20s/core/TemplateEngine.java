@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 /**
  * Template-driven projection — expands rows into RDF triples according to a
- * declarative JSON template, in the spirit of MarkLogic TDEs / R2RML term maps.
+ * declarative JSON template — template-driven projection, with R2RML-style IRI templates.
  *
  * A row is a {@code Map<String, Object>} of values: scalars, lists, or nested
  * maps (e.g. converted graph entities). Reserved metadata keys on entity rows:
@@ -52,7 +52,7 @@ import java.util.regex.Pattern;
  *       element. At most one list per pattern; lists only fan out in the object
  *       position, from a top-level row key.</li>
  *   <li>A missing/null placeholder value skips the triple pattern (or the whole
- *       row, for subject placeholders) — TDE behavior. A placeholder that
+ *       row, for subject placeholders) — missing data skips quietly. A placeholder that
  *       resolves to a map (rather than through it) errors loudly.</li>
  *   <li>{@code kind}: "literal" (default) or "iri". Placeholder values in IRI
  *       templates are percent-encoded (R2RML "IRI-safe").</li>

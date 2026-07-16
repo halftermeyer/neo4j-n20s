@@ -114,7 +114,7 @@ RETURN g.graphName, g.tripleCount, g.added;
 
 ### Template-Driven Projection
 
-`projectTemplate()` maps LPG nodes to triples declaratively — in the spirit of MarkLogic TDEs and R2RML term maps. Cypher finds the pattern, the template shapes the triples, Jena reasons over them. The mapping is data, not code: store it as cargo on a `(:Template)` node, version it, audit it.
+`projectTemplate()` maps LPG nodes to triples declaratively — template-driven projection, with R2RML-style IRI templates. Cypher finds the pattern, the template shapes the triples, Jena reasons over them. The mapping is data, not code: store it as cargo on a `(:Template)` node, version it, audit it.
 
 ```cypher
 CREATE (:Template {name: 'thing_mapping', template: '{
@@ -143,7 +143,7 @@ Semantics in brief:
 - **Placeholders** `{name}` are substituted with row values; dotted paths (`{_start.id}`) reach into nested maps. Rows are **nodes** (labels exposed as `{_labels}`, element id as `{_elementId}`), **relationships** (`{_type}`, `{_start}`, `{_end}`), **paths / entity lists** (`[s, r, t]` → positional `{_0}`, `{_1}`, `{_2}`), or **maps** — pass `properties(t)` or a computed map when the mapping needs Cypher logic.
 - **List fan-out** — a list-valued placeholder in the object emits one triple per element (object position only, max one list per pattern); dotted access fans out over lists of maps.
 - **Filters** — `include` / `exclude` on fan-out elements; the **`map` spec** renames *and* filters in one reviewable table, in object position (label → class) or predicate position (relationship type → predicate).
-- **Skip semantics (TDE-style)** — missing property skips the pattern, missing subject placeholder skips the row. No errors, no partial IRIs.
+- **Skip semantics** — missing property skips the pattern, missing subject placeholder skips the row. No errors, no partial IRIs.
 - **IRI safety & datatypes** — placeholder values in IRI positions are percent-encoded; literals keep native XSD types or take an explicit `datatype`.
 
 Relationships project as triples the same way — prefer **named entity maps** (positional `[s, r, t]` → `{_0}`, `{_1}`, `{_2}` also works, but names can't silently reverse an edge):

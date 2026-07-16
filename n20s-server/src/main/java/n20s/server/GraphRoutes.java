@@ -44,7 +44,7 @@ public final class GraphRoutes {
         app.get("/graph/{name}/triples", ctx ->
                 ctx.json(GraphEngine.triples(ctx.pathParam("name"))));
 
-        // Project rows via template (TDE-style)
+        // Project rows via template (template-driven projection)
         app.post("/graph/{name}/projectTemplate", GraphRoutes::handleProjectTemplate);
 
         // Query

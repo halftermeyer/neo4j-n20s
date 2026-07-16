@@ -2,7 +2,7 @@
 
 The reference for `n20s.graph.projectTemplate()` (Cypher) and `POST /graph/{name}/projectTemplate` (REST). Every rule is shown as **row + template → triples**, so you can predict exactly what a template will emit before running it.
 
-The idea, in one line: **Cypher finds the pattern, the template shapes the triples, Jena reasons over them.** Templates are deliberately dumb — placeholders, fan-out, filters, datatypes. Anything conditional belongs in Cypher (see [The escape hatch](#the-escape-hatch-computed-rows)). The design follows MarkLogic TDEs and R2RML term maps.
+The idea, in one line: **Cypher finds the pattern, the template shapes the triples, Jena reasons over them.** Templates are deliberately dumb — placeholders, fan-out, filters, datatypes. Anything conditional belongs in Cypher (see [The escape hatch](#the-escape-hatch-computed-rows)). The IRI-template syntax follows W3C R2RML term maps.
 
 ## Anatomy
 
@@ -79,7 +79,7 @@ If an entity has an actual property named like a reserved key (`_labels`, `_elem
 
 ## List fan-out
 
-A **list-valued** placeholder in the object emits one triple per element. This is the core TDE-style capability: *n* triples from one property.
+A **list-valued** placeholder in the object emits one triple per element. This is the core template-driven capability: *n* triples from one property.
 
 **Row**
 ```json
@@ -252,7 +252,7 @@ WITH n20s.graph.projectTemplate('g', tpl.template, p) AS g           -- same, fr
 
 Gotcha #8 from [CONTEXT.md](CONTEXT.md) applies doubly here: the subject template evaluated against `{_0.id}` in an edge mapping must mint **exactly the same IRI** as the node mapping's `{id}` for that node, or your edges silently detach from your nodes and validations pass vacuously. Keep one IRI pattern per entity type, shared verbatim across every template that mentions it.
 
-## Skip semantics (TDE-style)
+## Skip semantics
 
 Missing data skips quietly instead of erroring or emitting broken IRIs:
 

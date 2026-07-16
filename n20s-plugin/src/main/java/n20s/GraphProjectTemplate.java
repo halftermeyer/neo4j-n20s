@@ -18,7 +18,7 @@ import java.util.Map;
 /**
  * Aggregating function that projects rows (nodes, relationships, paths, lists,
  * or maps) into a named in-memory RDF graph through a declarative JSON template
- * (MarkLogic TDE / R2RML style).
+ * (template-driven projection, R2RML-style IRI templates).
  *
  * Usage:
  *   MATCH (t:Thing), (tpl:Template {name: 'thing_mapping'})

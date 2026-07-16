@@ -117,7 +117,7 @@ public final class GraphEngine {
         return new ProjectResult(name, count, "projected");
     }
 
-    // ── Project Template (TDE-style) ────────────────────────────
+    // ── Project Template ────────────────────────────────────────
 
     public static TemplateResult projectTemplate(String name, String template, List<Map<String, Object>> rows) {
         return projectTemplate(name, template, rows, "replace");

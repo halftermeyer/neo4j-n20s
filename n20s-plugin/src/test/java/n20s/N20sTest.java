@@ -21,6 +21,7 @@ class N20sTest {
         neo4j = Neo4jBuilders.newInProcessBuilder()
                 .withAggregationFunction(GraphProject.class)
                 .withAggregationFunction(GraphAddTurtle.class)
+                .withAggregationFunction(GraphProjectTemplate.class)
                 .withProcedure(GraphProcedures.class)
                 .build();
         driver = GraphDatabase.driver(neo4j.boltURI());
@@ -960,6 +961,66 @@ class N20sTest {
             var ex = assertThrows(Exception.class, () ->
                     session.run("CALL n20s.graph.addTurtle('bad_turtle', 'this is not valid turtle @#$%') YIELD added RETURN added").list());
             assertTrue(ex.getMessage().contains("Invalid Turtle") || ex.getMessage().contains("RiotException"));
+        }
+    }
+
+    // ── projectTemplate ─────────────────────────────────────────
+
+    @Test
+    void testProjectTemplate_nodeWithLabelFanOutAndFilter() {
+        try (Session session = driver.session()) {
+            session.run("CREATE (:Thing:`_Scratch` {id: 'id', prop: ['p1', 'p2', 'p3']})");
+
+            var result = session.run("""
+                MATCH (t:Thing)
+                WITH n20s.graph.projectTemplate('tpl_test', '{
+                  "subject": "http://example.com#thing_{id}",
+                  "triples": [
+                    { "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                      "object": "http://example.com#{_labels}",
+                      "kind": "iri",
+                      "exclude": ["_Scratch"] },
+                    { "predicate": "http://example.com#has_prop",
+                      "object": "http://example.com#{prop}",
+                      "kind": "iri" }
+                  ]
+                }', t) AS g
+                RETURN g.graphName AS name, g.rows AS rows, g.tripleCount AS count
+                """);
+
+            var record = result.single();
+            assertEquals("tpl_test", record.get("name").asString());
+            assertEquals(1, record.get("rows").asLong());
+            assertEquals(4, record.get("count").asLong()); // 1 rdf:type (label filtered) + 3 has_prop
+
+            var typed = session.run("""
+                CALL n20s.graph.query('tpl_test',
+                    'SELECT ?x WHERE { ?x a <http://example.com#Thing> }')
+                YIELD row RETURN row
+                """).list();
+            assertEquals(1, typed.size());
+
+            session.run("MATCH (t:Thing) DETACH DELETE t");
+        }
+    }
+
+    @Test
+    void testProjectTemplate_mapRow() {
+        try (Session session = driver.session()) {
+            var result = session.run("""
+                UNWIND [{id: 'w1', score: 42}, {id: 'w2', score: 7}] AS row
+                WITH n20s.graph.projectTemplate('tpl_map', '{
+                  "subject": "http://ex.org#w_{id}",
+                  "triples": [
+                    { "predicate": "http://ex.org#score", "object": "{score}" }
+                  ]
+                }', row) AS g
+                RETURN g.rows AS rows, g.tripleCount AS count
+                """);
+
+            var record = result.single();
+            assertEquals(2, record.get("rows").asLong());
+            assertEquals(2, record.get("count").asLong());
         }
     }
 }

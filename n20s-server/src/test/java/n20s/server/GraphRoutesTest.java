@@ -336,4 +336,59 @@ class GraphRoutesTest {
         var resp = post("/graph/val_empty/validate", "");
         assertEquals(200, resp.statusCode());
     }
+
+    // ── projectTemplate ─────────────────────────────────────────
+
+    @Test
+    void testProjectTemplate() throws Exception {
+        var resp = post("/graph/tplg/projectTemplate", """
+                {
+                  "template": {
+                    "subject": "http://example.com#thing_{id}",
+                    "triples": [
+                      { "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                        "object": "http://example.com#{_labels}",
+                        "kind": "iri",
+                        "exclude": ["_Scratch"] },
+                      { "predicate": "http://example.com#has_prop",
+                        "object": "http://example.com#{prop}",
+                        "kind": "iri" }
+                    ]
+                  },
+                  "rows": [
+                    { "id": "id", "_labels": ["Thing", "_Scratch"], "prop": ["p1", "p2", "p3"] },
+                    { "id": "other", "_labels": ["Thing"], "prop": ["p1"] }
+                  ]
+                }
+                """);
+        assertEquals(200, resp.statusCode());
+        assertTrue(resp.body().contains("\"rows\":2"));
+        assertTrue(resp.body().contains("\"tripleCount\":6")); // (1 type + 3 props) + (1 type + 1 prop)
+
+        var triples = get("/graph/tplg/triples");
+        assertTrue(triples.body().contains("http://example.com#thing_other"));
+        assertTrue(triples.body().contains("http://example.com#p2"));
+        assertFalse(triples.body().contains("_Scratch"));
+    }
+
+    @Test
+    void testProjectTemplate_templateAsString() throws Exception {
+        var resp = post("/graph/tplstr/projectTemplate", """
+                {
+                  "template": "{\\"subject\\": \\"http://ex.org#n_{id}\\", \\"triples\\": [{\\"predicate\\": \\"http://ex.org#p\\", \\"object\\": \\"{v}\\"}]}",
+                  "rows": [ { "id": "1", "v": "hello" } ]
+                }
+                """);
+        assertEquals(200, resp.statusCode());
+        assertTrue(resp.body().contains("\"tripleCount\":1"));
+    }
+
+    @Test
+    void testProjectTemplate_missingRows() throws Exception {
+        var resp = post("/graph/tplerr/projectTemplate", """
+                {"template": {"subject": "http://ex.org#{id}", "triples": [{"predicate": "http://ex.org#p", "object": "{v}"}]}}
+                """);
+        assertEquals(404, resp.statusCode());
+        assertTrue(resp.body().contains("rows"));
+    }
 }

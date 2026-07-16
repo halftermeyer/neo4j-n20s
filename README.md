@@ -95,12 +95,13 @@ CALL n20s.graph.drop('demo');
 |---|---|
 | `n20s.graph.project(name, s, p, o, [ifExists])` | Collect (s, p, o) rows into a named in-memory RDF graph |
 | `n20s.graph.addTurtle(name, turtle, [ifExists])` | Collect Turtle strings into a named in-memory RDF graph |
+| `n20s.graph.projectTemplate(name, template, row, [ifExists])` | Project nodes or maps into a named graph via a JSON template ([see below](#template-driven-projection)) |
 
-Both accept an optional `ifExists` parameter:
+All accept an optional `ifExists` parameter:
 
 | Value | Behavior | Default for |
 |---|---|---|
-| `'replace'` | Drop existing graph and create new | `project()` |
+| `'replace'` | Drop existing graph and create new | `project()`, `projectTemplate()` |
 | `'append'` | Merge into existing graph (create if needed) | `addTurtle()` |
 | `'fail'` | Error if graph already exists (GDS-style) | — |
 
@@ -110,6 +111,44 @@ MATCH (i:Ingredient) WHERE i.turtle IS NOT NULL
 WITH n20s.graph.addTurtle('check', i.turtle) AS g
 RETURN g.graphName, g.tripleCount, g.added;
 ```
+
+### Template-Driven Projection
+
+`projectTemplate()` maps LPG nodes to triples declaratively — in the spirit of MarkLogic TDEs and R2RML term maps. Cypher finds the pattern, the template shapes the triples, Jena reasons over them. The mapping is data, not code: store it as cargo on a `(:Template)` node, version it, audit it.
+
+```cypher
+CREATE (:Template {name: 'thing_mapping', template: '{
+  "subject": "http://example.com#thing_{id}",
+  "triples": [
+    { "predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object":    { "from": "_labels", "map": {
+          "Thing": "http://example.com#Thing",
+          "Ingredient": "http://example.org/cosmo#Ingredient"
+      }},
+      "kind": "iri" },
+    { "predicate": "http://example.com#has_prop",
+      "object":    "http://example.com#{prop}",
+      "kind":      "iri" }
+  ]
+}'});
+
+// One node (:Thing:Ingredient {id: 'x', prop: ['p1','p2','p3']}) → 2 rdf:type + 3 has_prop triples
+MATCH (t:Thing), (tpl:Template {name: 'thing_mapping'})
+WITH n20s.graph.projectTemplate('g', tpl.template, t) AS g
+RETURN g.graphName, g.rows, g.tripleCount;
+```
+
+Semantics:
+
+- **Placeholders** `{name}` are substituted with row values. Rows are **nodes** (labels exposed as `{_labels}`, element id as `{_elementId}`) or **maps** — pass `properties(t)` or a computed map when the mapping needs Cypher logic.
+- **List fan-out** — a list-valued placeholder in the object emits one triple per element. At most one list per pattern; lists are not allowed in subject or predicate position.
+- **Filters** — `include` / `exclude` arrays filter fan-out elements (e.g. drop housekeeping labels).
+- **`map` object spec** — `{"from": "_labels", "map": {...}}` renames *and* filters: each element is replaced by its mapped output, elements absent from the map are skipped. The map is the reviewable label→class alignment table.
+- **Skip semantics (TDE-style)** — a missing/null property skips the triple pattern; a missing subject placeholder skips the whole row. No errors, no partial IRIs.
+- **`kind`** — `"literal"` (default) or `"iri"`. Placeholder values in IRI positions are percent-encoded (R2RML "IRI-safe"), so `id: "my id"` mints `thing_my%20id`, not a broken IRI.
+- **Datatypes** — a whole-template placeholder like `"{age}"` keeps the value's native type (`long` → `xsd:long`); set `"datatype"` to override.
+
+Anything conditional ("this label only when...") belongs in Cypher — compute a map and pass it as the row. The template stays deliberately dumb.
 
 ### Procedures
 
@@ -279,6 +318,7 @@ curl -X POST localhost:7474/graph/check/query -H 'Content-Type: application/json
 |---|---|---|
 | `n20s.graph.addTurtle` | POST | `/graph/{name}/turtle` (accepts `turtle`, `turtles[]`, `ifExists`) |
 | `n20s.graph.project` | POST | `/graph/{name}/triples` (`?ifExists=` query param) |
+| `n20s.graph.projectTemplate` | POST | `/graph/{name}/projectTemplate` (accepts `template`, `rows[]`, `ifExists`) |
 | `n20s.graph.query` | POST | `/graph/{name}/query` |
 | `n20s.graph.queryWithRules` | POST | `/graph/{name}/queryWithRules` |
 | `n20s.graph.construct` | POST | `/graph/{name}/construct` |

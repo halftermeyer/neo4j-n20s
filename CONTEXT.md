@@ -51,6 +51,7 @@ Choosing: self-contained per-entity knowledge → Turtle property. Fine-grained 
 |---|---|
 | `n20s.graph.project(name, s, p, o, [ifExists])` | Aggregating function: collect (s,p,o) rows into a named graph. Default ifExists: `'replace'` |
 | `n20s.graph.addTurtle(name, turtle, [ifExists])` | Aggregating function OR procedure: collect/parse Turtle. Default ifExists: `'append'` |
+| `n20s.graph.projectTemplate(name, template, row, [ifExists])` | Aggregating function: project nodes or maps into a named graph via a JSON template (TDE/R2RML-style). Default ifExists: `'replace'` |
 | `n20s.graph.query(name, sparql, [profile])` | SPARQL SELECT; optional backward-chaining profile |
 | `n20s.graph.queryWithRules(name, sparql, rules, [profile])` | SPARQL SELECT with custom rules; optional profile layered underneath |
 | `n20s.graph.construct(name, sparql)` | SPARQL CONSTRUCT, returns triples |
@@ -65,7 +66,9 @@ Choosing: self-contained per-entity knowledge → Turtle property. Fine-grained 
 
 **Profiles**: `RDFS`, `OWL_MICRO`, `OWL_MINI`, `OWL` — Jena rule-based reasoners, not full OWL DL (no cardinality, no negation).
 
-**ifExists** (`project` and `addTurtle`): `'replace'` (drop + recreate), `'append'` (merge, create if needed), `'fail'` (error if exists).
+**ifExists** (`project`, `projectTemplate`, `addTurtle`): `'replace'` (drop + recreate), `'append'` (merge, create if needed), `'fail'` (error if exists).
+
+**projectTemplate** — the `row` argument is a node (labels exposed to the template as `{_labels}`, element id as `{_elementId}`) or a map (`properties(t)` / computed row). Template JSON: `{"subject": "…{id}…", "triples": [{"predicate": "…", "object": "…{prop}…" | {"from": "_labels", "map": {…}}, "kind": "iri"|"literal", "datatype": "…", "include": […], "exclude": […]}]}`. A list-valued placeholder in the object fans out one triple per element (max one list per pattern, object position only). Missing property → pattern skipped; missing subject placeholder → row skipped (TDE semantics). Placeholder values in IRI positions are percent-encoded. `map` renames and filters in one table — elements absent from the map are dropped. Conditional mapping belongs in Cypher: compute a map and pass it as the row.
 
 **Chaining**: forward (`infer*` — materialize once, query many) vs backward (`query(..., profile)` / `queryWithRules` — reason during the query, no materialization). Backward for one-shot checks; forward for repeated queries or Turtle export of entailments.
 
@@ -164,6 +167,26 @@ JSON in, JSON out. `profile` optional (omit or `""` for no reasoning). Errors: `
 ```
 
 Object encoding: URIs bare, blank nodes `_:id`, literals `"value"`, `"value"@lang`, `"value"^^<datatypeURI>`.
+
+### `POST /graph/{name}/projectTemplate` — project rows via template
+
+```json
+// template: JSON object (or pre-serialized string); rows: array of maps;
+// ifExists: "replace" (default) | "append" | "fail"
+{"template": {
+   "subject": "http://example.com#thing_{id}",
+   "triples": [
+     {"predicate": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+      "object": {"from": "_labels", "map": {"Thing": "http://example.com#Thing"}}, "kind": "iri"},
+     {"predicate": "http://example.com#has_prop",
+      "object": "http://example.com#{prop}", "kind": "iri"}
+   ]},
+ "rows": [{"id": "id", "_labels": ["Thing"], "prop": ["p1", "p2", "p3"]}]}
+
+// → {"graphName": "g", "rows": 1, "tripleCount": 4, "status": "projected"}
+```
+
+Same template semantics as the plugin function (see API Quick Reference). This is the endpoint a middleware calls after fetching nodes over Bolt: convert each node to `{…props, "_labels": […], "_elementId": "…"}` and POST.
 
 ### `POST /graph/{name}/query` — SPARQL SELECT
 

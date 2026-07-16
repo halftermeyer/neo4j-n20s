@@ -117,6 +117,32 @@ public final class GraphEngine {
         return new ProjectResult(name, count, "projected");
     }
 
+    // ── Project Template (TDE-style) ────────────────────────────
+
+    public static TemplateResult projectTemplate(String name, String template, List<Map<String, Object>> rows) {
+        return projectTemplate(name, template, rows, "replace");
+    }
+
+    public static TemplateResult projectTemplate(String name, String template,
+                                                 List<Map<String, Object>> rows, String ifExists) {
+        TemplateEngine.Template tpl = TemplateEngine.parse(template);
+        if (rows == null || rows.isEmpty()) {
+            return new TemplateResult(name, 0, 0, "empty");
+        }
+
+        Model model = resolveModelForWrite(name, ifExists);
+        long triples = 0;
+        for (Map<String, Object> row : rows) {
+            triples += TemplateEngine.expandInto(model, tpl, row);
+        }
+
+        if (!GraphCatalog.exists(name)) {
+            GraphCatalog.put(name, model);
+        }
+
+        return new TemplateResult(name, rows.size(), triples, "projected");
+    }
+
     // ── Query ───────────────────────────────────────────────────
 
     public static List<QueryResult> query(String name, String sparql, String reasoningProfile) {

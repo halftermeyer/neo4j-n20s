@@ -44,6 +44,9 @@ public final class GraphRoutes {
         app.get("/graph/{name}/triples", ctx ->
                 ctx.json(GraphEngine.triples(ctx.pathParam("name"))));
 
+        // Project rows via template (TDE-style)
+        app.post("/graph/{name}/projectTemplate", GraphRoutes::handleProjectTemplate);
+
         // Query
         app.post("/graph/{name}/query", GraphRoutes::handleQuery);
 
@@ -97,6 +100,33 @@ public final class GraphRoutes {
         ctx.json(GraphEngine.projectTriples(name, triples, ifExists));
     }
 
+    private static void handleProjectTemplate(Context ctx) {
+        String name = ctx.pathParam("name");
+        var body = ctx.bodyAsClass(TemplateProjectRequest.class);
+
+        if (body.template == null) {
+            throw new IllegalArgumentException("Request must include 'template' (JSON object or string)");
+        }
+        if (body.rows == null || body.rows.isEmpty()) {
+            throw new IllegalArgumentException("Request must include a non-empty 'rows' array");
+        }
+
+        // Template may arrive as a JSON object (natural) or a pre-serialized string
+        String template;
+        if (body.template instanceof String s) {
+            template = s;
+        } else {
+            try {
+                template = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body.template);
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new RuntimeException("Invalid template: " + e.getMessage(), e);
+            }
+        }
+
+        String ifExists = body.ifExists != null ? body.ifExists : "replace";
+        ctx.json(GraphEngine.projectTemplate(name, template, body.rows, ifExists));
+    }
+
     private static void handleQuery(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(QueryRequest.class);
@@ -142,6 +172,12 @@ public final class GraphRoutes {
         public String s;
         public String p;
         public String o;
+    }
+
+    public static class TemplateProjectRequest {
+        public Object template;
+        public java.util.List<Map<String, Object>> rows;
+        public String ifExists;
     }
 
     public static class QueryRequest {

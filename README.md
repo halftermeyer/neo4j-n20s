@@ -344,6 +344,8 @@ Full request/response schemas for every endpoint: [CONTEXT.md](CONTEXT.md#rest-a
 
 **Same engine, same results.** An application can switch between plugin mode (bolt) and server mode (REST) behind one abstraction — the cosmo-rd demo runs both from a single flag.
 
+**Python client.** [`n20s-python`](n20s-python/) mirrors the Cypher API over the server, GDS-Python-client style — including the Bolt fetch: `n20s.graph.projectTemplate("g", tpl, cypher="MATCH … RETURN n")` runs your scoping Cypher via the Neo4j driver, converts entities to the canonical row shapes, and POSTs them. The client is the middleware.
+
 ### Build from source
 
 ```bash

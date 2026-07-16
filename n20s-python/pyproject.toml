@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "n20s-client"
+version = "0.1.0"
+description = "Python client for n20s — in-memory RDF reasoning for Neo4j. Mirrors the Cypher API over the n20s-server HTTP sidecar, with optional Bolt fetch via the Neo4j driver."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Pierre Halftermeyer" }]
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+neo4j = ["neo4j>=5.0"]
+dev = ["pytest>=7.0", "neo4j>=5.0"]
+
+[project.urls]
+Homepage = "https://github.com/halftermeyer/neo4j-n20s"
+
+[tool.setuptools.packages.find]
+include = ["n20s*"]

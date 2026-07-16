@@ -96,6 +96,17 @@ public class GraphProcedures {
         return GraphEngine.validate(name).stream();
     }
 
+    // ── n20s.graph.validateWithRules() ─────────────────────────
+
+    @Procedure(name = "n20s.graph.validateWithRules", mode = Mode.READ)
+    @Description("SHACL validation with ephemeral inference: optional reasoning profile applied first, optional custom Jena rules layered on top. The named graph is never modified.")
+    public Stream<ValidationResult> validateWithRules(
+            @Name("name") String name,
+            @Name(value = "rules", defaultValue = "") String rules,
+            @Name(value = "reasoningProfile", defaultValue = "") String reasoningProfile) {
+        return GraphEngine.validateWithRules(name, rules, reasoningProfile).stream();
+    }
+
     // ── n20s.graph.addTurtle() ─────────────────────────────────
 
     @Procedure(name = "n20s.graph.addTurtle", mode = Mode.READ)

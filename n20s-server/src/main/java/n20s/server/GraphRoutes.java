@@ -65,6 +65,9 @@ public final class GraphRoutes {
         // Validate — accepts empty body or no body
         app.post("/graph/{name}/validate", ctx ->
                 ctx.json(GraphEngine.validate(ctx.pathParam("name"))));
+
+        // Validate with ephemeral inference (profile and/or rules) — never modifies the graph
+        app.post("/graph/{name}/validateWithRules", GraphRoutes::handleValidateWithRules);
     }
 
     private static void handleAddTurtle(Context ctx) {
@@ -153,6 +156,14 @@ public final class GraphRoutes {
         ctx.json(GraphEngine.infer(name, body.profile));
     }
 
+    private static void handleValidateWithRules(Context ctx) {
+        String name = ctx.pathParam("name");
+        var body = ctx.bodyAsClass(ValidateWithRulesRequest.class);
+        String rules = body.rules != null ? body.rules : "";
+        String profile = body.profile != null ? body.profile : "";
+        ctx.json(GraphEngine.validateWithRules(name, rules, profile));
+    }
+
     private static void handleInferWithRules(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(InferWithRulesRequest.class);
@@ -200,6 +211,11 @@ public final class GraphRoutes {
     }
 
     public static class InferWithRulesRequest {
+        public String rules;
+        public String profile;
+    }
+
+    public static class ValidateWithRulesRequest {
         public String rules;
         public String profile;
     }

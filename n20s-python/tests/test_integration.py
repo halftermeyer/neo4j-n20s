@@ -130,7 +130,26 @@ def test_ai_chef_scenario(server):
     )
     assert {"x": "http://example.org/food#butter"} in rows
 
-    # 6. drop
+    # 6. validateWithRules — SHACL over ephemeral inference, graph untouched
+    server.graph.addTurtle(g, (
+        "@prefix sh: <http://www.w3.org/ns/shacl#> ."
+        " @prefix food: <http://example.org/food#> ."
+        " food:AllergenShape a sh:NodeShape ;"
+        " sh:targetNode food:lasagna ;"
+        " sh:sparql ["
+        "  sh:message \"Recipe carries an allergen\" ;"
+        "  sh:select \"PREFIX food: <http://example.org/food#> SELECT $this ?value"
+        " WHERE { $this food:hasAllergen ?value . }\" ] ."
+    ))
+    before = next(x["tripleCount"] for x in server.graph.list() if x["graphName"] == g)
+    report = server.graph.validateWithRules(g, PROPAGATION_RULE)
+    assert any(v["severity"] == "Violation"
+               and v["value"] == "http://example.org/food#allergen_milk"
+               for v in report)
+    after = next(x["tripleCount"] for x in server.graph.list() if x["graphName"] == g)
+    assert before == after  # ephemeral: nothing materialized
+
+    # 7. drop
     assert server.graph.drop(g)["status"] == "dropped"
 
 

@@ -337,6 +337,24 @@ class GraphRoutesTest {
         assertEquals(200, resp.statusCode());
     }
 
+    // ── validateWithRules ───────────────────────────────────────
+
+    @Test
+    void testValidateWithRules_ephemeralInference() throws Exception {
+        post("/graph/vwr/turtle", """
+                {"turtle": "@prefix ex: <http://ex.org/> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . @prefix sh: <http://www.w3.org/ns/shacl#> . ex:butter a ex:Dairy . ex:Dairy rdfs:subClassOf ex:AnimalProduct . ex:lasagna ex:claims ex:vegan ; ex:contains ex:butter . ex:VeganShape a sh:NodeShape ; sh:targetSubjectsOf ex:claims ; sh:sparql [ sh:message \\"Contains an animal product\\" ; sh:select \\"PREFIX ex: <http://ex.org/> SELECT $this ?value WHERE { $this ex:contains ?value . ?value a ex:AnimalProduct . }\\" ] ."}
+                """);
+
+        var withRules = post("/graph/vwr/validateWithRules", "{\"profile\": \"RDFS\"}");
+        assertEquals(200, withRules.statusCode());
+        assertTrue(withRules.body().contains("Violation"));
+        assertTrue(withRules.body().contains("animal product"));
+
+        // ephemeral: plain validate on the untouched graph still conforms
+        var plain = post("/graph/vwr/validate", "");
+        assertTrue(plain.body().contains("INFO"));
+    }
+
     // ── projectTemplate ─────────────────────────────────────────
 
     @Test

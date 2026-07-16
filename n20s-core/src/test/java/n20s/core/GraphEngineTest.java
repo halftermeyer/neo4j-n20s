@@ -65,6 +65,64 @@ class GraphEngineTest {
                 GraphEngine.addTurtle("bad", "this is not valid turtle @#$%"));
     }
 
+    // ── validateWithRules (ephemeral inference) ─────────────────
+
+    @Test
+    void testValidateWithRules_seesEntailments_withoutMutatingGraph() {
+        GraphEngine.addTurtle("vwr", """
+                @prefix ex: <http://ex.org/> .
+                @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                @prefix sh: <http://www.w3.org/ns/shacl#> .
+                ex:butter a ex:Dairy .
+                ex:Dairy rdfs:subClassOf ex:AnimalProduct .
+                ex:lasagna ex:claims ex:vegan ; ex:contains ex:bechamel .
+                ex:bechamel ex:contains ex:butter .
+                ex:VeganShape a sh:NodeShape ;
+                    sh:targetSubjectsOf ex:claims ;
+                    sh:sparql [
+                        sh:message "Contains an animal product" ;
+                        sh:select "PREFIX ex: <http://ex.org/> SELECT $this ?value WHERE { $this ex:containsT ?value . ?value a ex:AnimalProduct . }" ;
+                    ] .
+                """);
+        long before = GraphCatalog.tripleCount("vwr");
+
+        // Plain validate: no entailments → conforms
+        var plain = GraphEngine.validate("vwr");
+        assertEquals("INFO", plain.get(0).severity);
+
+        // Ephemeral inference: transitive-containment rule + RDFS subclass typing
+        var results = GraphEngine.validateWithRules("vwr", """
+                [trans1: (?a http://ex.org/contains ?b) -> (?a http://ex.org/containsT ?b)]
+                [trans2: (?a http://ex.org/containsT ?b) (?b http://ex.org/containsT ?c) -> (?a http://ex.org/containsT ?c)]
+                """, "RDFS");
+        assertTrue(results.stream().anyMatch(r ->
+                "Violation".equals(r.severity) && r.value.contains("butter")));
+
+        // The catalog model was read, never written
+        assertEquals(before, GraphCatalog.tripleCount("vwr"));
+    }
+
+    @Test
+    void testValidateWithRules_profileOnly() {
+        GraphEngine.addTurtle("vwr2", """
+                @prefix ex: <http://ex.org/> .
+                @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                @prefix sh: <http://www.w3.org/ns/shacl#> .
+                ex:butter a ex:Dairy .
+                ex:Dairy rdfs:subClassOf ex:AnimalProduct .
+                ex:AnimalShape a sh:NodeShape ;
+                    sh:targetClass ex:AnimalProduct ;
+                    sh:sparql [
+                        sh:message "Animal product spotted" ;
+                        sh:select "SELECT $this WHERE { $this ?p ?o . FILTER(false) }" ;
+                    ] .
+                """);
+
+        // With RDFS, butter is typed ex:AnimalProduct → targeted (conforms; the constraint matches nothing)
+        var results = GraphEngine.validateWithRules("vwr2", null, "RDFS");
+        assertEquals("INFO", results.get(0).severity);
+    }
+
     // ── infer (forward chaining) ────────────────────────────────
 
     @Test

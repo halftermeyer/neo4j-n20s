@@ -270,8 +270,34 @@ public final class GraphEngine {
 
     public static List<ValidationResult> validate(String name) {
         Model model = GraphCatalog.get(name);
-        Graph dataGraph = model.getGraph();
+        return validateGraph(model.getGraph());
+    }
 
+    // ── Validate With Rules (ephemeral inference) ───────────────
+
+    /**
+     * SHACL validation over an inference-wrapped model: the optional profile
+     * runs first, custom rules layer on top — exactly like queryWithRules.
+     * Entailments live in the InfModel's deduction store and are discarded
+     * after the call; the catalog model is read, never written.
+     */
+    public static List<ValidationResult> validateWithRules(String name, String rules, String reasoningProfile) {
+        Model model = GraphCatalog.get(name);
+
+        if (reasoningProfile != null && !reasoningProfile.isEmpty()) {
+            Reasoner builtinReasoner = resolveReasoner(reasoningProfile);
+            model = ModelFactory.createInfModel(builtinReasoner, model);
+        }
+
+        if (rules != null && !rules.isBlank()) {
+            GenericRuleReasoner reasoner = new GenericRuleReasoner(parseRules(rules));
+            model = ModelFactory.createInfModel(reasoner, model);
+        }
+
+        return validateGraph(model.getGraph());
+    }
+
+    private static List<ValidationResult> validateGraph(Graph dataGraph) {
         Shapes shapes;
         try {
             shapes = Shapes.parse(dataGraph);

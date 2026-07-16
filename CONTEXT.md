@@ -58,6 +58,7 @@ Choosing: self-contained per-entity knowledge → Turtle property. Fine-grained 
 | `n20s.graph.infer(name, profile)` | Forward chaining, materializes (axiomatic triples filtered) |
 | `n20s.graph.inferWithRules(name, rules, [profile])` | Forward chaining with custom rules (axiomatic triples filtered) |
 | `n20s.graph.validate(name)` | SHACL validation (shapes projected in the same graph) |
+| `n20s.graph.validateWithRules(name, [rules], [profile])` | SHACL validation over ephemeral inference — profile first, rules layered on top; never modifies the graph (like `queryWithRules`, unlike `infer*`) |
 | `n20s.graph.toTurtle(name)` | Serialize graph as Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples |
 | `n20s.graph.list()` | List in-memory graphs |
@@ -70,7 +71,7 @@ Choosing: self-contained per-entity knowledge → Turtle property. Fine-grained 
 
 **projectTemplate** — the `row` argument is a node (labels exposed to the template as `{_labels}`, element id as `{_elementId}`), a relationship (`{_type}`, `{_start}`/`{_end}` node rows — self-contained, so `UNWIND rels AS hop` handles var-length patterns), a map (`{s: s, r: r, t: t}` — **preferred** for multi-entity rows; entity values converted recursively; positional `[s, r, t]` can silently reverse edges), or a path/entity list (positional `{_0}`, `{_1}`, `{_2}`). Template JSON: `{"subject": "…{id}…", "triples": [{"predicate": "…" | {"from": "_1._type", "map": {…}}, "object": "…{prop}…" | {"from": "_labels", "map": {…}}, "kind": "iri"|"literal", "datatype": "…", "include": […], "exclude": […]}]}`. Dotted placeholders (`{_start.id}`) reach into nested maps; a placeholder resolving *to* a map errors loudly. A list-valued top-level placeholder in the object fans out one triple per element (max one list per pattern, object position only; dotted access fans out list-of-maps). Missing property → pattern skipped; missing subject placeholder → row skipped (TDE semantics). Placeholder values in IRI positions are percent-encoded. `map` renames and filters in one table — values absent from the map are dropped (object: element skipped; predicate: pattern skipped). Conditional mapping belongs in Cypher: compute a map and pass it as the row. Worked examples for every rule: [TEMPLATES.md](TEMPLATES.md).
 
-**Chaining**: forward (`infer*` — materialize once, query many) vs backward (`query(..., profile)` / `queryWithRules` — reason during the query, no materialization). Backward for one-shot checks; forward for repeated queries or Turtle export of entailments.
+**Chaining**: forward (`infer*` — materialize once, query many) vs backward (`query(..., profile)` / `queryWithRules` / `validateWithRules` — reason during the call, no materialization). Backward for one-shot checks — a full agent validation (project → validateWithRules → drop) never mutates the projection; forward for repeated queries or Turtle export of entailments.
 
 **Layering**: in `*WithRules`, the optional profile runs first (e.g., RDFS computes subclass closure), then custom rules fire on the enriched model. This is how a rule targeting a superclass catches all subclasses.
 
@@ -230,6 +231,16 @@ Same template semantics as the plugin function (see API Quick Reference). This i
 [{"focusNode": null, "path": null, "severity": "INFO", "message": "Validation passed — graph conforms to all shapes.", "value": null, "sourceShape": null}]
 // violations:
 [{"focusNode": "http://ex.org/Alice", "path": "http://ex.org/name", "severity": "Violation", "message": "…", "value": null, "sourceShape": "…"}]
+```
+
+### `POST /graph/{name}/validateWithRules` — SHACL over ephemeral inference
+
+```json
+// rules and profile both optional; the graph is never modified
+{"rules": "[allergen: (?r food:contains ?i) (?i food:hasAllergen ?a) -> (?r food:hasAllergen ?a)]",
+ "profile": "OWL_MICRO"}
+
+// → same response shape as /validate
 ```
 
 ### Reads and management

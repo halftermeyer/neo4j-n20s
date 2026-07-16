@@ -964,6 +964,46 @@ class N20sTest {
         }
     }
 
+    // ── validateWithRules ───────────────────────────────────────
+
+    @Test
+    void testValidateWithRules_ephemeralInference() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('vwr_test', '
+                    @prefix ex: <http://ex.org/> .
+                    @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                    @prefix sh: <http://www.w3.org/ns/shacl#> .
+                    ex:butter a ex:Dairy .
+                    ex:Dairy rdfs:subClassOf ex:AnimalProduct .
+                    ex:lasagna ex:claims ex:vegan ; ex:contains ex:butter .
+                    ex:VeganShape a sh:NodeShape ;
+                        sh:targetSubjectsOf ex:claims ;
+                        sh:sparql [
+                            sh:message "Contains an animal product" ;
+                            sh:select "PREFIX ex: <http://ex.org/> SELECT $this ?value WHERE { $this ex:contains ?value . ?value a ex:AnimalProduct . }" ;
+                        ] .
+                ') YIELD triplesAfter RETURN triplesAfter
+                """);
+
+            var violations = session.run("""
+                CALL n20s.graph.validateWithRules('vwr_test', '', 'RDFS')
+                YIELD focusNode, severity, message
+                WHERE severity = 'Violation'
+                RETURN focusNode, message
+                """).list();
+            assertEquals(1, violations.size());
+            assertTrue(violations.get(0).get("focusNode").asString().contains("lasagna"));
+
+            // the graph was never modified — plain validate still conforms
+            var plain = session.run("""
+                CALL n20s.graph.validate('vwr_test')
+                YIELD severity RETURN severity
+                """).list();
+            assertEquals("INFO", plain.get(0).get("severity").asString());
+        }
+    }
+
     // ── projectTemplate ─────────────────────────────────────────
 
     @Test

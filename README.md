@@ -170,6 +170,7 @@ The full reference — every rule as row + template → triples, error catalog, 
 | `n20s.graph.infer(name, profile)` | Forward-chaining inference — materializes entailed triples (axiomatic noise filtered out) |
 | `n20s.graph.inferWithRules(name, rules, [profile])` | Custom rule inference (forward chaining, materializes); optional profile underneath |
 | `n20s.graph.validate(name)` | SHACL validation — shapes are projected into the same graph as the data |
+| `n20s.graph.validateWithRules(name, [rules], [profile])` | SHACL validation over ephemeral inference (profile first, rules on top) — the graph is never modified |
 | `n20s.graph.toTurtle(name)` | Serialize a named graph as a Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |
 | `n20s.graph.list()` | List all in-memory graphs with triple counts |
@@ -199,7 +200,7 @@ CALL n20s.graph.query('scope', 'SELECT ... more');     // fast
 CALL n20s.graph.query('scope', 'SELECT ...', 'RDFS');
 ```
 
-Rule of thumb: backward for one-shot checks (most agent validations), forward when you'll run several queries on the same projection or want to export the entailed graph via `toTurtle()`.
+Rule of thumb: backward for one-shot checks — including SHACL via `validateWithRules()`, so a complete agent validation never mutates the projection. Forward when you'll run several queries on the same projection or want to export the entailed graph via `toTurtle()`.
 
 ### Custom Rules
 
@@ -334,6 +335,7 @@ curl -X POST localhost:7474/graph/check/query -H 'Content-Type: application/json
 | `n20s.graph.infer` | POST | `/graph/{name}/infer` |
 | `n20s.graph.inferWithRules` | POST | `/graph/{name}/inferWithRules` |
 | `n20s.graph.validate` | POST | `/graph/{name}/validate` |
+| `n20s.graph.validateWithRules` | POST | `/graph/{name}/validateWithRules` (accepts `rules`, `profile`, both optional) |
 | `n20s.graph.toTurtle` | GET | `/graph/{name}/turtle` |
 | `n20s.graph.triples` | GET | `/graph/{name}/triples` |
 | `n20s.graph.list` | GET | `/graph` |

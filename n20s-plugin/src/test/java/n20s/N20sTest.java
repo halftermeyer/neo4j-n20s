@@ -1065,6 +1065,73 @@ class N20sTest {
     }
 
     @Test
+    void testProjectTemplate_namedEntityMapRow() {
+        try (Session session = driver.session()) {
+            session.run("CREATE (:Thing {id: 's1'})-[:RELATES_TO]->(:OtherThing {id: 't1'})");
+
+            var result = session.run("""
+                MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
+                WITH n20s.graph.projectTemplate('tpl_named', '{
+                  "subject": "http://ex.org#thing_{s.id}",
+                  "triples": [
+                    { "predicate": { "from": "r._type", "map": {
+                        "RELATES_TO": "http://ex.org#relatesTo"
+                      }},
+                      "object": "http://ex.org#other_{t.id}",
+                      "kind": "iri" }
+                  ]
+                }', {s: s, r: r, t: t}) AS g
+                RETURN g.tripleCount AS count
+                """);
+
+            assertEquals(1, result.single().get("count").asLong());
+
+            session.run("MATCH (n) WHERE n:Thing OR n:OtherThing DETACH DELETE n");
+        }
+    }
+
+    @Test
+    void testProjectTemplate_relationshipRow_varLengthUnwind() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CREATE (:Thing {id: 'a'})-[:RELATES_TO]->(:Thing {id: 'b'})
+                       -[:RELATES_TO]->(:Thing {id: 'c'})
+                """);
+
+            // r in a var-length pattern is a LIST of relationships — one row per hop,
+            // each self-contained via _start/_end
+            var result = session.run("""
+                MATCH (:Thing {id: 'a'})-[rels:RELATES_TO*2]->(:Thing)
+                UNWIND rels AS hop
+                WITH n20s.graph.projectTemplate('tpl_hops', '{
+                  "subject": "http://ex.org#thing_{_start.id}",
+                  "triples": [
+                    { "predicate": { "from": "_type", "map": {
+                        "RELATES_TO": "http://ex.org#relatesTo"
+                      }},
+                      "object": "http://ex.org#thing_{_end.id}",
+                      "kind": "iri" }
+                  ]
+                }', hop) AS g
+                RETURN g.rows AS rows, g.tripleCount AS count
+                """);
+
+            var record = result.single();
+            assertEquals(2, record.get("rows").asLong());
+            assertEquals(2, record.get("count").asLong());
+
+            var chained = session.run("""
+                CALL n20s.graph.query('tpl_hops',
+                    'SELECT ?x WHERE { <http://ex.org#thing_a> <http://ex.org#relatesTo> ?x }')
+                YIELD row RETURN row
+                """).list();
+            assertEquals(1, chained.size());
+
+            session.run("MATCH (n:Thing) DETACH DELETE n");
+        }
+    }
+
+    @Test
     void testProjectTemplate_pathRow() {
         try (Session session = driver.session()) {
             session.run("CREATE (:Thing {id: 'a'})-[:RELATES_TO]->(:OtherThing {id: 'b'})");

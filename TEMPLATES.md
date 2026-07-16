@@ -46,9 +46,9 @@ rel:   -[:CONTAINS {pct: 0.05}]->
        { "pct": 0.05, "_type": "CONTAINS", "_elementId": "…",
          "_start": <node row>, "_end": <node row> }
 
+map:   {s: s, r: r}  → passes through; entity values converted recursively (recommended)
 list:  [s, r, t]     → positional row { "_0": <s row>, "_1": <r row>, "_2": <t row> }
 path:  p             → same, alternating node, rel, node, …
-map:   {a: s, b: 1}  → passes through; entity values converted recursively
 ```
 
 If an entity has an actual property named like a reserved key (`_labels`, `_elementId`, `_type`, `_start`, `_end`), the conversion **errors loudly** rather than silently shadowing — rename the property or project a map instead.
@@ -179,28 +179,28 @@ Labels rarely map 1:1 to ontology IRIs. The `{"from": …, "map": …}` object s
 - Mapped outputs are used **verbatim** (they are full IRIs or literal text you wrote) — no placeholder substitution, no encoding.
 - `include`/`exclude` still apply, before the map lookup.
 
-## Relationships & paths: `[s, r, t]`
+## Relationships & paths
 
-Entity lists convert to **positional rows** — `{_0}`, `{_1}`, `{_2}` — with each entity converted canonically. Dotted placeholders address into them, and a `{from, map}` spec in **predicate position** turns relationship types into predicates. Edge → triple, declaratively:
+A `{from, map}` spec in **predicate position** turns relationship types into predicates — edge → triple, declaratively. The recommended row form is a **named entity map**: entity values inside maps convert recursively, and the names carry meaning.
 
 ```cypher
 MATCH (tpl:Template {name: 'rel_mapping'})
 MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
-WITH n20s.graph.projectTemplate('g', tpl.template, [s, r, t]) AS g
+WITH n20s.graph.projectTemplate('g', tpl.template, {s: s, r: r, t: t}) AS g
 RETURN g.graphName, g.rows, g.tripleCount;
 ```
 
 **Template**
 ```json
 {
-  "subject": "http://ex.org#thing_{_0.id}",
+  "subject": "http://ex.org#thing_{s.id}",
   "triples": [
-    { "predicate": { "from": "_1._type", "map": {
+    { "predicate": { "from": "r._type", "map": {
         "RELATES_TO": "http://ex.org#relatesTo"
       }},
-      "object": "http://ex.org#other_{_2.id}",
+      "object": "http://ex.org#other_{t.id}",
       "kind": "iri" },
-    { "predicate": "http://ex.org#weight", "object": "{_1.weight}" }
+    { "predicate": "http://ex.org#weight", "object": "{r.weight}" }
   ]
 }
 ```
@@ -211,12 +211,42 @@ RETURN g.graphName, g.rows, g.tripleCount;
 <http://ex.org#thing_s1> ex:weight "3"^^xsd:long .
 ```
 
-Notes:
+**The predicate map is the edge→predicate alignment table**, symmetric with the label→class table: relationship types absent from the map skip the pattern, so heterogeneous matches are filtered for free.
 
-- **The predicate map is the edge→predicate alignment table**, symmetric with the label→class table: relationship types absent from the map skip the pattern, so heterogeneous matches are filtered for free.
-- **Paths work identically** — `MATCH p = (s)-[r]->(t)` then `projectTemplate('g', tpl.template, p)`: a path converts to the same positional row, alternating node, rel, node, … On variable-length paths, placeholders beyond the path's length are simply missing → skipped (TDE semantics).
-- A relationship converted standalone (or inside the list) carries `_start`/`_end` node rows, so `{_1._start.id}` and `{_0.id}` resolve to the same value — use whichever reads better, but mint IRIs with **one convention** ([see below](#one-uri-convention)).
-- Over HTTP, positional rows are plain nested JSON: `{"_0": {"id": "s1"}, "_1": {"_type": "RELATES_TO"}, "_2": {"id": "t1"}}` — this is what a middleware posts after fetching over Bolt.
+### Bare relationships are self-contained
+
+A relationship row carries `_start`/`_end` node rows, so the relationship alone suffices — subject from `{_start.id}`, object from `{_end.id}`:
+
+```cypher
+MATCH (:Thing)-[r:RELATES_TO]->(:OtherThing)
+WITH n20s.graph.projectTemplate('g', tpl.template, r) AS g
+```
+
+### Variable-length patterns
+
+In `MATCH (a)-[rels:RELATES_TO*]->(b)`, `rels` is a **list of relationships**. Since each hop is self-contained, `UNWIND` and project per hop:
+
+```cypher
+MATCH (:Thing {id: 'a'})-[rels:RELATES_TO*]->(:Thing)
+UNWIND rels AS hop
+WITH n20s.graph.projectTemplate('g', tpl.template, hop) AS g
+RETURN g.rows, g.tripleCount;
+```
+
+with subject `{_start.id}`, object `{_end.id}`. Overlapping paths re-emit shared hops; RDF has **set semantics**, so the model stores each triple once — `tripleCount` counts emissions, the graph dedupes.
+
+### Positional shorthand: `[s, r, t]` and paths
+
+Entity lists convert to **positional rows** — `{_0}`, `{_1}`, `{_2}` — and a path converts the same way, alternating node, rel, node, …:
+
+```cypher
+WITH n20s.graph.projectTemplate('g', tpl.template, [s, r, t]) AS g   -- {_0.id}, {_1._type}, {_2.id}
+WITH n20s.graph.projectTemplate('g', tpl.template, p) AS g           -- same, from MATCH p = (s)-[r]->(t)
+```
+
+⚠️ **Prefer named keys.** Positional order *is* the meaning: passing `[t, r, s]` reverses every edge — all triples mint, all counts look right, direction silently wrong. Named maps make that mistake impossible; use positional only where names genuinely help nothing.
+
+- Over HTTP, rows are plain nested JSON either way: `{"s": {"id": "s1"}, "r": {"_type": "RELATES_TO"}, "t": {"id": "t1"}}` — this is what a middleware posts after fetching over Bolt.
 
 ### One URI convention
 

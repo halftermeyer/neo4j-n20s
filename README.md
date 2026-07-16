@@ -146,13 +146,13 @@ Semantics in brief:
 - **Skip semantics (TDE-style)** — missing property skips the pattern, missing subject placeholder skips the row. No errors, no partial IRIs.
 - **IRI safety & datatypes** — placeholder values in IRI positions are percent-encoded; literals keep native XSD types or take an explicit `datatype`.
 
-Relationships project as triples the same way:
+Relationships project as triples the same way — prefer **named entity maps** (positional `[s, r, t]` → `{_0}`, `{_1}`, `{_2}` also works, but names can't silently reverse an edge):
 
 ```cypher
 MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
-WITH n20s.graph.projectTemplate('g', tpl.template, [s, r, t]) AS g
+WITH n20s.graph.projectTemplate('g', tpl.template, {s: s, r: r, t: t}) AS g
 RETURN g.rows, g.tripleCount;
-// template: subject "…{_0.id}", predicate {"from": "_1._type", "map": {…}}, object "…{_2.id}"
+// template: subject "…{s.id}", predicate {"from": "r._type", "map": {…}}, object "…{t.id}"
 ```
 
 Anything conditional ("this label only when...") belongs in Cypher — compute a map and pass it as the row. The template stays deliberately dumb.

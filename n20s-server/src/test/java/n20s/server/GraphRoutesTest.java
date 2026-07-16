@@ -384,6 +384,33 @@ class GraphRoutesTest {
     }
 
     @Test
+    void testProjectTemplate_nestedRows() throws Exception {
+        // Positional entity rows — what a middleware posts after fetching (s)-[r]->(t) over Bolt
+        var resp = post("/graph/tplnest/projectTemplate", """
+                {
+                  "template": {
+                    "subject": "http://ex.org#thing_{_0.id}",
+                    "triples": [
+                      { "predicate": { "from": "_1._type", "map": {
+                          "RELATES_TO": "http://ex.org#relatesTo"
+                        }},
+                        "object": "http://ex.org#other_{_2.id}",
+                        "kind": "iri" }
+                    ]
+                  },
+                  "rows": [
+                    { "_0": {"id": "s1"}, "_1": {"_type": "RELATES_TO"}, "_2": {"id": "t1"} }
+                  ]
+                }
+                """);
+        assertEquals(200, resp.statusCode());
+        assertTrue(resp.body().contains("\"tripleCount\":1"));
+
+        var triples = get("/graph/tplnest/triples");
+        assertTrue(triples.body().contains("http://ex.org#relatesTo"));
+    }
+
+    @Test
     void testProjectTemplate_missingRows() throws Exception {
         var resp = post("/graph/tplerr/projectTemplate", """
                 {"template": {"subject": "http://ex.org#{id}", "triples": [{"predicate": "http://ex.org#p", "object": "{v}"}]}}

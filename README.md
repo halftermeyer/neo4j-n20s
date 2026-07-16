@@ -95,7 +95,7 @@ CALL n20s.graph.drop('demo');
 |---|---|
 | `n20s.graph.project(name, s, p, o, [ifExists])` | Collect (s, p, o) rows into a named in-memory RDF graph |
 | `n20s.graph.addTurtle(name, turtle, [ifExists])` | Collect Turtle strings into a named in-memory RDF graph |
-| `n20s.graph.projectTemplate(name, template, row, [ifExists])` | Project nodes or maps into a named graph via a JSON template ([see below](#template-driven-projection)) |
+| `n20s.graph.projectTemplate(name, template, row, [ifExists])` | Project nodes, relationships, paths, entity lists, or maps into a named graph via a JSON template ([see below](#template-driven-projection)) |
 
 All accept an optional `ifExists` parameter:
 
@@ -140,11 +140,20 @@ RETURN g.graphName, g.rows, g.tripleCount;
 
 Semantics in brief:
 
-- **Placeholders** `{name}` are substituted with row values. Rows are **nodes** (labels exposed as `{_labels}`, element id as `{_elementId}`) or **maps** — pass `properties(t)` or a computed map when the mapping needs Cypher logic.
-- **List fan-out** — a list-valued placeholder in the object emits one triple per element (object position only, max one list per pattern).
-- **Filters** — `include` / `exclude` on fan-out elements; the **`map` object spec** renames *and* filters in one reviewable table.
+- **Placeholders** `{name}` are substituted with row values; dotted paths (`{_start.id}`) reach into nested maps. Rows are **nodes** (labels exposed as `{_labels}`, element id as `{_elementId}`), **relationships** (`{_type}`, `{_start}`, `{_end}`), **paths / entity lists** (`[s, r, t]` → positional `{_0}`, `{_1}`, `{_2}`), or **maps** — pass `properties(t)` or a computed map when the mapping needs Cypher logic.
+- **List fan-out** — a list-valued placeholder in the object emits one triple per element (object position only, max one list per pattern); dotted access fans out over lists of maps.
+- **Filters** — `include` / `exclude` on fan-out elements; the **`map` spec** renames *and* filters in one reviewable table, in object position (label → class) or predicate position (relationship type → predicate).
 - **Skip semantics (TDE-style)** — missing property skips the pattern, missing subject placeholder skips the row. No errors, no partial IRIs.
 - **IRI safety & datatypes** — placeholder values in IRI positions are percent-encoded; literals keep native XSD types or take an explicit `datatype`.
+
+Relationships project as triples the same way:
+
+```cypher
+MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
+WITH n20s.graph.projectTemplate('g', tpl.template, [s, r, t]) AS g
+RETURN g.rows, g.tripleCount;
+// template: subject "…{_0.id}", predicate {"from": "_1._type", "map": {…}}, object "…{_2.id}"
+```
 
 Anything conditional ("this label only when...") belongs in Cypher — compute a map and pass it as the row. The template stays deliberately dumb.
 

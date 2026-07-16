@@ -1023,4 +1023,70 @@ class N20sTest {
             assertEquals(2, record.get("count").asLong());
         }
     }
+
+    @Test
+    void testProjectTemplate_entityListRow() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CREATE (:Thing {id: 's1'})-[:RELATES_TO {weight: 3}]->(:OtherThing {id: 't1'}),
+                       (:Thing {id: 's2'})-[:RELATES_TO {weight: 5}]->(:OtherThing {id: 't2'})
+                """);
+
+            var result = session.run("""
+                MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
+                WITH n20s.graph.projectTemplate('tpl_rel', '{
+                  "subject": "http://ex.org#thing_{_0.id}",
+                  "triples": [
+                    { "predicate": { "from": "_1._type", "map": {
+                        "RELATES_TO": "http://ex.org#relatesTo"
+                      }},
+                      "object": "http://ex.org#other_{_2.id}",
+                      "kind": "iri" },
+                    { "predicate": "http://ex.org#weight", "object": "{_1.weight}" }
+                  ]
+                }', [s, r, t]) AS g
+                RETURN g.graphName AS name, g.rows AS rows, g.tripleCount AS count
+                """);
+
+            var record = result.single();
+            assertEquals("tpl_rel", record.get("name").asString());
+            assertEquals(2, record.get("rows").asLong());
+            assertEquals(4, record.get("count").asLong()); // 2 × (relatesTo + weight)
+
+            var linked = session.run("""
+                CALL n20s.graph.query('tpl_rel',
+                    'SELECT ?o WHERE { <http://ex.org#thing_s1> <http://ex.org#relatesTo> ?o }')
+                YIELD row RETURN row
+                """).list();
+            assertEquals(1, linked.size());
+
+            session.run("MATCH (n) WHERE n:Thing OR n:OtherThing DETACH DELETE n");
+        }
+    }
+
+    @Test
+    void testProjectTemplate_pathRow() {
+        try (Session session = driver.session()) {
+            session.run("CREATE (:Thing {id: 'a'})-[:RELATES_TO]->(:OtherThing {id: 'b'})");
+
+            var result = session.run("""
+                MATCH p = (:Thing)-[:RELATES_TO]->(:OtherThing)
+                WITH n20s.graph.projectTemplate('tpl_path', '{
+                  "subject": "http://ex.org#thing_{_0.id}",
+                  "triples": [
+                    { "predicate": { "from": "_1._type", "map": {
+                        "RELATES_TO": "http://ex.org#relatesTo"
+                      }},
+                      "object": "http://ex.org#other_{_2.id}",
+                      "kind": "iri" }
+                  ]
+                }', p) AS g
+                RETURN g.tripleCount AS count
+                """);
+
+            assertEquals(1, result.single().get("count").asLong());
+
+            session.run("MATCH (n) WHERE n:Thing OR n:OtherThing DETACH DELETE n");
+        }
+    }
 }

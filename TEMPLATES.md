@@ -26,27 +26,36 @@ The idea, in one line: **Cypher finds the pattern, the template shapes the tripl
 |---|---|---|
 | `subject` | yes | IRI template for the row's subject. Placeholders must be scalar and present, or the row is skipped. |
 | `triples[]` | yes (≥1) | One entry per triple pattern; each emits 0..n triples per row. |
-| `predicate` | yes | IRI template. Placeholders must be scalar and present, or the pattern is skipped. |
+| `predicate` | yes | IRI template, or a `{"from": …, "map": …}` spec (e.g. relationship type → predicate). Missing/unmapped value skips the pattern. |
 | `object` | yes | A template string, or a `{"from": …, "map": …}` spec ([below](#map-rename--filter-in-one-table)). |
 | `kind` | no | `"literal"` (default) or `"iri"`. |
 | `datatype` | no | XSD datatype IRI; literals only. |
-| `include` / `exclude` | no | Filters on fan-out elements, applied before anything else. |
+| `include` / `exclude` | no | Filters on scalar fan-out elements, applied before anything else. |
 
-A **row** is a map of values. When you pass a node, it is converted canonically:
+A **row** is a map of values — scalars, lists, or nested maps. Graph entities are converted canonically:
 
 ```
-(:Thing:Ingredient {id: 'x', prop: ['p1','p2']})
+node:  (:Thing:Ingredient {id: 'x', prop: ['p1','p2']})
         ↓
-{ "id": "x", "prop": ["p1","p2"],
-  "_labels": ["Thing", "Ingredient"],        ← reserved
-  "_elementId": "4:abc:42" }                 ← reserved
+       { "id": "x", "prop": ["p1","p2"],
+         "_labels": ["Thing", "Ingredient"],       ← reserved
+         "_elementId": "4:abc:42" }                ← reserved
+
+rel:   -[:CONTAINS {pct: 0.05}]->
+        ↓
+       { "pct": 0.05, "_type": "CONTAINS", "_elementId": "…",
+         "_start": <node row>, "_end": <node row> }
+
+list:  [s, r, t]     → positional row { "_0": <s row>, "_1": <r row>, "_2": <t row> }
+path:  p             → same, alternating node, rel, node, …
+map:   {a: s, b: 1}  → passes through; entity values converted recursively
 ```
 
-If a node has an actual property named `_labels` or `_elementId`, the conversion **errors loudly** rather than silently shadowing — rename the property or project a map instead.
+If an entity has an actual property named like a reserved key (`_labels`, `_elementId`, `_type`, `_start`, `_end`), the conversion **errors loudly** rather than silently shadowing — rename the property or project a map instead.
 
 ## Placeholders
 
-`{name}` is substituted with the row value for `name`. Names match `[A-Za-z_][A-Za-z0-9_]*`, so the reserved keys `{_labels}` and `{_elementId}` work like any other placeholder.
+`{name}` is substituted with the row value for `name`; dotted paths `{a.b}` reach into nested maps (`{_start.id}`, `{_1._type}`). Names match `[A-Za-z_][A-Za-z0-9_]*` per segment, so the reserved keys `{_labels}` and `{_elementId}` work like any other placeholder. A placeholder that resolves *to* a map (rather than through it) is an error — add a key.
 
 **Row**
 ```json
@@ -100,8 +109,9 @@ Rules:
 
 - A scalar value in the same position emits exactly one triple — templates don't care whether `prop` is `"p1"` or `["p1"]`.
 - An **empty list** emits zero triples (not an error).
-- **At most one list per pattern.** Two list placeholders in one object template (`"…{a}_{b}"` with both lists) → error: no silent cartesian products.
-- **Lists only fan out in the object position.** A list behind a subject or predicate placeholder → error. If you need per-element subjects, `UNWIND` in Cypher — that's a scoping decision, not a shaping one.
+- **At most one list per pattern.** Two list placeholders in one object template (`"…{a}_{b}"` with both lists) → error: no silent cartesian products. Dotted placeholders sharing the *same* list (`"{ingredients.id}-{ingredients.conc}"`) are fine — they pin to the same element.
+- **Lists only fan out in the object position, from a top-level row key.** A list behind a subject or predicate placeholder → error. If you need per-element subjects, `UNWIND` in Cypher — that's a scoping decision, not a shaping one.
+- **List-of-maps fan-out** uses dotted access: `"{ingredients.id}"` over `[{id: "retinol"}, {id: "aqua"}]` emits one triple per element. `include`/`exclude` don't apply to map elements (filter in Cypher instead).
 
 ## Labels → `rdf:type`
 
@@ -165,9 +175,52 @@ Labels rarely map 1:1 to ontology IRIs. The `{"from": …, "map": …}` object s
 
 `_Imported` is silently dropped — it has no entry. Notes:
 
-- `from` names a row key; a scalar value is treated as a one-element list, so `{"from": "state", "map": {"ok": "…#Valid"}}` works on `state: "ok"`.
+- `from` names a row key (dotted paths allowed, e.g. `"_1._type"`); a scalar value is treated as a one-element list, so `{"from": "state", "map": {"ok": "…#Valid"}}` works on `state: "ok"`.
 - Mapped outputs are used **verbatim** (they are full IRIs or literal text you wrote) — no placeholder substitution, no encoding.
 - `include`/`exclude` still apply, before the map lookup.
+
+## Relationships & paths: `[s, r, t]`
+
+Entity lists convert to **positional rows** — `{_0}`, `{_1}`, `{_2}` — with each entity converted canonically. Dotted placeholders address into them, and a `{from, map}` spec in **predicate position** turns relationship types into predicates. Edge → triple, declaratively:
+
+```cypher
+MATCH (tpl:Template {name: 'rel_mapping'})
+MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
+WITH n20s.graph.projectTemplate('g', tpl.template, [s, r, t]) AS g
+RETURN g.graphName, g.rows, g.tripleCount;
+```
+
+**Template**
+```json
+{
+  "subject": "http://ex.org#thing_{_0.id}",
+  "triples": [
+    { "predicate": { "from": "_1._type", "map": {
+        "RELATES_TO": "http://ex.org#relatesTo"
+      }},
+      "object": "http://ex.org#other_{_2.id}",
+      "kind": "iri" },
+    { "predicate": "http://ex.org#weight", "object": "{_1.weight}" }
+  ]
+}
+```
+
+**→ Triples** (for `(s {id:'s1'})-[r:RELATES_TO {weight: 3}]->(t {id:'t1'})`)
+```turtle
+<http://ex.org#thing_s1> ex:relatesTo <http://ex.org#other_t1> .
+<http://ex.org#thing_s1> ex:weight "3"^^xsd:long .
+```
+
+Notes:
+
+- **The predicate map is the edge→predicate alignment table**, symmetric with the label→class table: relationship types absent from the map skip the pattern, so heterogeneous matches are filtered for free.
+- **Paths work identically** — `MATCH p = (s)-[r]->(t)` then `projectTemplate('g', tpl.template, p)`: a path converts to the same positional row, alternating node, rel, node, … On variable-length paths, placeholders beyond the path's length are simply missing → skipped (TDE semantics).
+- A relationship converted standalone (or inside the list) carries `_start`/`_end` node rows, so `{_1._start.id}` and `{_0.id}` resolve to the same value — use whichever reads better, but mint IRIs with **one convention** ([see below](#one-uri-convention)).
+- Over HTTP, positional rows are plain nested JSON: `{"_0": {"id": "s1"}, "_1": {"_type": "RELATES_TO"}, "_2": {"id": "t1"}}` — this is what a middleware posts after fetching over Bolt.
+
+### One URI convention
+
+Gotcha #8 from [CONTEXT.md](CONTEXT.md) applies doubly here: the subject template evaluated against `{_0.id}` in an edge mapping must mint **exactly the same IRI** as the node mapping's `{id}` for that node, or your edges silently detach from your nodes and validations pass vacuously. Keep one IRI pattern per entity type, shared verbatim across every template that mentions it.
 
 ## Skip semantics (TDE-style)
 
@@ -177,7 +230,8 @@ Missing data skips quietly instead of erroring or emitting broken IRIs:
 |---|---|
 | A property behind an **object/predicate** placeholder | That **pattern** is skipped for this row; other patterns still emit |
 | A property behind a **subject** placeholder | The whole **row** is skipped (no subject → nothing to say) |
-| An element's key in a `map` | That **element** is skipped |
+| A nested key in a dotted path (`{_0.grade}` with no `grade`) | Same as above — pattern or row, by position |
+| An element's key in a `map` (object or predicate position) | That **element** (or pattern, for predicates) is skipped |
 
 **Row**
 ```json
@@ -256,8 +310,12 @@ This is why concatenating IRIs in the template beats concatenating them in Cyphe
 | Condition | Error |
 |---|---|
 | Two list placeholders in one pattern | `at most one list per pattern` |
-| List behind a subject/predicate placeholder | `lists may only fan out in the object position` |
-| Node property named `_labels` / `_elementId` | reserved-key collision |
+| List behind a subject/predicate placeholder, or a nested (non-top-level) list | `lists may only fan out in the object position, from a top-level row key` |
+| Placeholder resolving *to* a map (`{_0}` where `_0` is an entity row) | `resolves to a map — add a key: {_0.<key>}` |
+| Dotted path through a non-map (`{id.x}` where `id` is a scalar) | `'id' is not a map — cannot access 'x'` |
+| `include`/`exclude` on list-of-maps fan-out | `do not apply to map fan-out elements — filter in Cypher` |
+| Predicate `from` resolving to a list | `predicates must be scalar` |
+| Entity property named like a reserved key (`_labels`, `_elementId`, `_type`, `_start`, `_end`) | reserved-key collision |
 | `datatype` with `kind: "iri"` | `'datatype' only applies to kind 'literal'` |
 | Malformed JSON, missing `subject`/`predicate`/`object`, unknown `kind` | parse error naming the field |
 | Mixed graph names or templates in one aggregation | aggregation error (plugin) |

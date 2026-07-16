@@ -263,4 +263,151 @@ class TemplateEngineTest {
         var result = GraphEngine.projectTemplate("g", THING_TEMPLATE, List.of(row));
         assertEquals(2, result.tripleCount);
     }
+
+    // ── dotted placeholders ─────────────────────────────────────
+
+    private static final String REL_TEMPLATE = """
+            {
+              "subject": "http://ex.org#thing_{_0.id}",
+              "triples": [
+                { "predicate": { "from": "_1._type", "map": {
+                    "RELATES_TO": "http://ex.org#relatesTo"
+                  }},
+                  "object": "http://ex.org#other_{_2.id}",
+                  "kind": "iri" }
+              ]
+            }
+            """;
+
+    @Test
+    void testDottedPlaceholders_positionalEntityRow() {
+        var result = GraphEngine.projectTemplate("g", REL_TEMPLATE, List.of(Map.of(
+                "_0", Map.of("id", "s1"),
+                "_1", Map.of("_type", "RELATES_TO"),
+                "_2", Map.of("id", "t1"))));
+
+        assertEquals(1, result.tripleCount);
+        var t = GraphEngine.triples("g").get(0);
+        assertEquals("http://ex.org#thing_s1", t.subject);
+        assertEquals("http://ex.org#relatesTo", t.predicate);
+        assertEquals("http://ex.org#other_t1", t.object);
+    }
+
+    @Test
+    void testPredicateMap_unmappedType_skipsPattern() {
+        var result = GraphEngine.projectTemplate("g", REL_TEMPLATE, List.of(Map.of(
+                "_0", Map.of("id", "s1"),
+                "_1", Map.of("_type", "IGNORED_TYPE"),
+                "_2", Map.of("id", "t1"))));
+
+        assertEquals(1, result.rows);
+        assertEquals(0, result.tripleCount); // type absent from predicate map → skipped
+    }
+
+    @Test
+    void testDottedFanOut_listOfMaps() {
+        var result = GraphEngine.projectTemplate("g", """
+                {
+                  "subject": "http://ex.org#prod_{id}",
+                  "triples": [
+                    { "predicate": "http://ex.org#contains",
+                      "object": "http://ex.org#ing_{ingredients.id}",
+                      "kind": "iri" }
+                  ]
+                }
+                """,
+                List.of(Map.of("id", "p1", "ingredients",
+                        List.of(Map.of("id", "retinol"), Map.of("id", "aqua")))));
+
+        assertEquals(2, result.tripleCount);
+        var triples = GraphEngine.triples("g");
+        assertTrue(triples.stream().anyMatch(t -> t.object.equals("http://ex.org#ing_retinol")));
+        assertTrue(triples.stream().anyMatch(t -> t.object.equals("http://ex.org#ing_aqua")));
+    }
+
+    @Test
+    void testDottedFanOut_twoPlaceholdersSameList() {
+        var result = GraphEngine.projectTemplate("g", """
+                {
+                  "subject": "http://ex.org#prod_{id}",
+                  "triples": [
+                    { "predicate": "http://ex.org#batch",
+                      "object": "{ingredients.id}-{ingredients.conc}" }
+                  ]
+                }
+                """,
+                List.of(Map.of("id", "p1", "ingredients",
+                        List.of(Map.of("id", "retinol", "conc", "low"),
+                                Map.of("id", "aqua", "conc", "high")))));
+
+        assertEquals(2, result.tripleCount); // same list → same pinned element, no cartesian
+        assertTrue(GraphEngine.triples("g").stream()
+                .anyMatch(t -> t.object.startsWith("\"retinol-low\"")));
+    }
+
+    @Test
+    void testMapValuedPlaceholderWithoutDot_throws() {
+        var ex = assertThrows(RuntimeException.class, () ->
+                GraphEngine.projectTemplate("g", """
+                        {
+                          "subject": "http://ex.org#n_{_0}",
+                          "triples": [
+                            { "predicate": "http://ex.org#p", "object": "{v}" }
+                          ]
+                        }
+                        """,
+                        List.of(Map.of("_0", Map.of("id", "s1"), "v", "x"))));
+        assertTrue(ex.getMessage().contains("resolves to a map"));
+    }
+
+    @Test
+    void testMissingNestedKey_skipsPattern() {
+        var result = GraphEngine.projectTemplate("g", """
+                {
+                  "subject": "http://ex.org#n_{_0.id}",
+                  "triples": [
+                    { "predicate": "http://ex.org#p", "object": "{_0.grade}" },
+                    { "predicate": "http://ex.org#q", "object": "{_0.id}" }
+                  ]
+                }
+                """,
+                List.of(Map.of("_0", Map.of("id", "s1"))));
+
+        assertEquals(1, result.tripleCount); // grade missing → pattern skipped, id emitted
+    }
+
+    @Test
+    void testFiltersOnMapElements_throw() {
+        var ex = assertThrows(RuntimeException.class, () ->
+                GraphEngine.projectTemplate("g", """
+                        {
+                          "subject": "http://ex.org#prod_{id}",
+                          "triples": [
+                            { "predicate": "http://ex.org#contains",
+                              "object": "http://ex.org#ing_{ingredients.id}",
+                              "kind": "iri",
+                              "exclude": ["aqua"] }
+                          ]
+                        }
+                        """,
+                        List.of(Map.of("id", "p1", "ingredients",
+                                List.of(Map.of("id", "retinol"))))));
+        assertTrue(ex.getMessage().contains("do not apply to map fan-out elements"));
+    }
+
+    @Test
+    void testDottedNativeTypedLiteral() {
+        var result = GraphEngine.projectTemplate("g", """
+                {
+                  "subject": "http://ex.org#rel_{_1._elementId}",
+                  "triples": [
+                    { "predicate": "http://ex.org#weight", "object": "{_1.weight}" }
+                  ]
+                }
+                """,
+                List.of(Map.of("_1", Map.of("_elementId", "e1", "weight", 42L))));
+
+        assertEquals(1, result.tripleCount);
+        assertTrue(GraphEngine.triples("g").get(0).object.startsWith("\"42\"^^"));
+    }
 }

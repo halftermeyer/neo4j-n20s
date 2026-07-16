@@ -149,6 +149,12 @@ class _GraphAPI:
             raise N20sError("Provide exactly one of 'rows' or 'cypher'.")
         if cypher is not None:
             rows = self._c._fetch_rows(cypher, params)
+            if not rows:
+                raise N20sError(
+                    "The scoping Cypher returned no rows — nothing to project."
+                    " Check that the data exists in the database and the"
+                    f" parameters match. Query: {cypher.strip()!r}"
+                )
         body = {"template": template, "rows": list(rows or []), "ifExists": ifExists}
         return self._c._post(f"/graph/{name}/projectTemplate", body)
 

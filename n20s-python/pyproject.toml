@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "n20s-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python client for n20s — in-memory RDF reasoning for Neo4j. Mirrors the Cypher API over the n20s-server HTTP sidecar, with optional Bolt fetch via the Neo4j driver."
 readme = "README.md"
 requires-python = ">=3.9"

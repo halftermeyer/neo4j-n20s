@@ -35,8 +35,9 @@ No driver? Pass `rows=[…]` directly — the client is then a plain HTTP wrappe
 ## Install
 
 ```bash
-pip install -e n20s-python          # from the repo, with:
-pip install -e 'n20s-python[neo4j]' # …the Bolt driver included
+pip install ./n20s-python           # from the repo root, or with the Bolt driver:
+pip install './n20s-python[neo4j]'
+# editable (-e) also works, but needs pip >= 21.3 (PEP 660)
 ```
 
 ## Test

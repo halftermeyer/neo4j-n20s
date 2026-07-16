@@ -138,17 +138,17 @@ WITH n20s.graph.projectTemplate('g', tpl.template, t) AS g
 RETURN g.graphName, g.rows, g.tripleCount;
 ```
 
-Semantics:
+Semantics in brief:
 
 - **Placeholders** `{name}` are substituted with row values. Rows are **nodes** (labels exposed as `{_labels}`, element id as `{_elementId}`) or **maps** — pass `properties(t)` or a computed map when the mapping needs Cypher logic.
-- **List fan-out** — a list-valued placeholder in the object emits one triple per element. At most one list per pattern; lists are not allowed in subject or predicate position.
-- **Filters** — `include` / `exclude` arrays filter fan-out elements (e.g. drop housekeeping labels).
-- **`map` object spec** — `{"from": "_labels", "map": {...}}` renames *and* filters: each element is replaced by its mapped output, elements absent from the map are skipped. The map is the reviewable label→class alignment table.
-- **Skip semantics (TDE-style)** — a missing/null property skips the triple pattern; a missing subject placeholder skips the whole row. No errors, no partial IRIs.
-- **`kind`** — `"literal"` (default) or `"iri"`. Placeholder values in IRI positions are percent-encoded (R2RML "IRI-safe"), so `id: "my id"` mints `thing_my%20id`, not a broken IRI.
-- **Datatypes** — a whole-template placeholder like `"{age}"` keeps the value's native type (`long` → `xsd:long`); set `"datatype"` to override.
+- **List fan-out** — a list-valued placeholder in the object emits one triple per element (object position only, max one list per pattern).
+- **Filters** — `include` / `exclude` on fan-out elements; the **`map` object spec** renames *and* filters in one reviewable table.
+- **Skip semantics (TDE-style)** — missing property skips the pattern, missing subject placeholder skips the row. No errors, no partial IRIs.
+- **IRI safety & datatypes** — placeholder values in IRI positions are percent-encoded; literals keep native XSD types or take an explicit `datatype`.
 
 Anything conditional ("this label only when...") belongs in Cypher — compute a map and pass it as the row. The template stays deliberately dumb.
+
+The full reference — every rule as row + template → triples, error catalog, HTTP examples — lives in **[TEMPLATES.md](TEMPLATES.md)**.
 
 ### Procedures
 

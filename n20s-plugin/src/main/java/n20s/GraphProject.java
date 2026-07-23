@@ -34,10 +34,14 @@ public class GraphProject {
         @UserAggregationUpdate
         public void update(
                 @Name("name") String name,
-                @Name("s") String s,
-                @Name("p") String p,
-                @Name("o") String o,
+                @Name("s") Object sArg,  // ANY: dodges the 2026.05 UNWIND-concat inference bug (see Args)
+                @Name("p") Object pArg,
+                @Name("o") Object oArg,
                 @Name(value = "ifExists", defaultValue = "replace") String ifExists) {
+
+            String s = Args.string(sArg, "s");
+            String p = Args.string(pArg, "p");
+            String o = Args.string(oArg, "o");
 
             if (model == null) {
                 graphName = name;

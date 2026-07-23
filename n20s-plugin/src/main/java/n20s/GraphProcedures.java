@@ -127,9 +127,9 @@ public class GraphProcedures {
     @Description("Parse a Turtle string and add its triples to a named in-memory RDF graph. Creates the graph if it doesn't exist. Optional ifExists: 'append' (default), 'replace', 'fail'.")
     public Stream<AddTurtleResult> addTurtle(
             @Name("name") String name,
-            @Name("turtle") String turtle,
+            @Name("turtle") Object turtle,  // ANY: dodges the 2026.05 UNWIND-concat inference bug (see Args)
             @Name(value = "ifExists", defaultValue = "append") String ifExists) {
-        return Stream.of(GraphEngine.addTurtle(name, turtle, ifExists));
+        return Stream.of(GraphEngine.addTurtle(name, Args.string(turtle, "turtle"), ifExists));
     }
 
     // ── n20s.graph.toTurtle() ─────────────────────────────────

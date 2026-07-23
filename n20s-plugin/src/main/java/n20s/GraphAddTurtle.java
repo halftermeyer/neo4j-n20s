@@ -38,7 +38,7 @@ public class GraphAddTurtle {
         @UserAggregationUpdate
         public void update(
                 @Name("name") String name,
-                @Name("turtle") String turtle,
+                @Name("turtle") Object turtleArg,  // ANY: dodges the 2026.05 UNWIND-concat inference bug (see Args)
                 @Name(value = "ifExists", defaultValue = "append") String ifExists) {
 
             if (model == null) {
@@ -50,6 +50,7 @@ public class GraphAddTurtle {
                         + graphName + "' but received '" + name + "'. Use a single graph name per aggregation.");
             }
 
+            String turtle = Args.string(turtleArg, "turtle");
             if (turtle == null || turtle.isBlank()) {
                 return; // skip null/empty turtle strings silently
             }

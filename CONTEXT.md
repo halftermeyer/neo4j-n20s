@@ -92,6 +92,7 @@ Hard-won knowledge — violating these produces silent wrong answers or hours of
 10. **Turtle-in-Cypher**: single-quoted Cypher string, double-quoted Turtle literals, real newlines, escape `\` and `'`.
 11. **`rdfs:label` everything** — rules and SPARQL results need human-readable names.
 12. **SHACL + big shape sets + RDFS is slow** — for targeted checks, build a minimal inline shape at runtime.
+13. **Neo4j 2026.05.0 type-inference bug**: `UNWIND collect(n.prop) + [m.prop] AS t` mis-infers `t` as `Boolean` and rejects String-typed procedure/function parameters at planning time ("Type mismatch: expected String but was Boolean") — pure Cypher (`toUpper(t)`) fails the same way. n20s ≥ this build declares data-carrying params (`turtle`, `s`/`p`/`o`, `template`) as ANY with runtime coercion, so the pattern works. On older n20s builds, wrap the argument: `addTurtle('g', toString(t))`.
 
 ## Agent Integration Pattern
 

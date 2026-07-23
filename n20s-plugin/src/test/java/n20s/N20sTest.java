@@ -964,6 +964,58 @@ class N20sTest {
         }
     }
 
+    @Test
+    void testUnwindConcat_typeInferenceWorkaround() {
+        // Neo4j 2026.05.0 mis-infers UNWIND collect(prop) + [prop] AS t as Boolean
+        // and rejected String-typed parameters at planning time. Data-carrying
+        // params are declared ANY so this pattern (the README flagship) works.
+        try (Session session = driver.session()) {
+            session.run("""
+                CREATE (:BugIng {turtle: '@prefix ex: <http://ex.org/> . ex:A a ex:Thing .'}),
+                       (:BugIng {turtle: '@prefix ex: <http://ex.org/> . ex:B a ex:Thing .'}),
+                       (:BugOnt {turtle: '@prefix ex: <http://ex.org/> . ex:Thing a ex:Class .'})
+                """);
+
+            // aggregation form
+            var agg = session.run("""
+                MATCH (i:BugIng) WHERE i.turtle IS NOT NULL
+                WITH collect(i.turtle) AS cargo
+                MATCH (ont:BugOnt)
+                UNWIND cargo + [ont.turtle] AS t
+                WITH n20s.graph.addTurtle('concat_agg', t) AS g
+                RETURN g.tripleCount AS count
+                """);
+            assertEquals(3, agg.single().get("count").asLong());
+
+            // procedure form
+            var proc = session.run("""
+                MATCH (i:BugIng) WITH collect(i.turtle) AS cargo
+                MATCH (ont:BugOnt)
+                UNWIND cargo + [ont.turtle] AS t
+                CALL n20s.graph.addTurtle('concat_proc', t) YIELD added
+                RETURN sum(added) AS total
+                """);
+            assertEquals(3, proc.single().get("total").asLong());
+
+            // project (s,p,o) form
+            var proj = session.run("""
+                MATCH (i:BugIng) WITH collect(i.turtle) AS xs
+                MATCH (ont:BugOnt)
+                UNWIND xs + [ont.turtle] AS t
+                WITH n20s.graph.project('concat_proj', 'http://ex.org/s', 'http://ex.org/p', t) AS g
+                RETURN g.tripleCount AS count
+                """);
+            assertEquals(3, proj.single().get("count").asLong());
+
+            // wrong runtime type still errors clearly
+            var ex = assertThrows(Exception.class, () ->
+                    session.run("WITH n20s.graph.addTurtle('concat_bad', 42) AS g RETURN g").consume());
+            assertTrue(ex.getMessage().contains("must be a String"));
+
+            session.run("MATCH (n) WHERE n:BugIng OR n:BugOnt DETACH DELETE n");
+        }
+    }
+
     // ── explain ─────────────────────────────────────────────────
 
     @Test

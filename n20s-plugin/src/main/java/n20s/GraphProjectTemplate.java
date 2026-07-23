@@ -56,9 +56,11 @@ public class GraphProjectTemplate {
         @UserAggregationUpdate
         public void update(
                 @Name("name") String name,
-                @Name("template") String template,
+                @Name("template") Object templateArg,  // ANY: dodges the 2026.05 UNWIND-concat inference bug (see Args)
                 @Name("row") Object row,
                 @Name(value = "ifExists", defaultValue = "replace") String ifExists) {
+
+            String template = Args.string(templateArg, "template");
 
             if (model == null) {
                 graphName = name;

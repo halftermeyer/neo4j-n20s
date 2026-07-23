@@ -335,6 +335,108 @@ public final class GraphEngine {
         return results;
     }
 
+    // ── Explain (derivation trace, ephemeral) ──────────────────
+
+    /**
+     * Explain how a statement is entailed: re-derive it inside the window with
+     * derivation logging enabled and return the derivation tree as a flat,
+     * depth-first list of steps. The optional profile runs first, custom rules
+     * layer on top — exactly like queryWithRules. Ephemeral: the named graph is
+     * read, never written.
+     *
+     * Each step is one statement with its kind:
+     *   "derived"  — produced by a rule (named in {@code rule}); its premises
+     *                follow at depth+1
+     *   "asserted" — present in the projected graph
+     *   "axiom"    — supplied by the reasoner itself (profile axioms)
+     */
+    public static List<ExplainResult> explain(String name, String s, String p, String o,
+                                              String rules, String reasoningProfile) {
+        Model base = GraphCatalog.get(name);
+
+        List<InfModel> layers = new ArrayList<>(); // inner-first
+        Model current = base;
+        if (reasoningProfile != null && !reasoningProfile.isEmpty()) {
+            InfModel m = ModelFactory.createInfModel(resolveReasoner(reasoningProfile), current);
+            m.setDerivationLogging(true);
+            layers.add(m);
+            current = m;
+        }
+        if (rules != null && !rules.isBlank()) {
+            GenericRuleReasoner reasoner = new GenericRuleReasoner(parseRules(rules));
+            reasoner.setDerivationLogging(true);
+            InfModel m = ModelFactory.createInfModel(reasoner, current);
+            m.setDerivationLogging(true);
+            layers.add(m);
+            current = m;
+        }
+        if (layers.isEmpty()) {
+            throw new RuntimeException("explain() needs at least one of 'rules' or a reasoning profile"
+                    + " — without inference there is nothing to derive.");
+        }
+
+        Resource subject = TripleParser.parseSubject(current, s);
+        Property predicate = current.createProperty(p);
+        RDFNode object = TripleParser.parseObject(current, o);
+        Statement target = current.createStatement(subject, predicate, object);
+
+        if (!current.contains(target)) {
+            throw new RuntimeException("Statement is not asserted or entailed in graph '" + name
+                    + "' under the given rules/profile: " + s + " " + p + " " + o);
+        }
+
+        List<ExplainResult> steps = new ArrayList<>();
+        walkDerivation(target, 0, base, layers, steps, new HashSet<>());
+        return steps;
+    }
+
+    private static void walkDerivation(Statement st, int depth, Model base, List<InfModel> layers,
+                                       List<ExplainResult> steps, Set<Statement> visited) {
+        String obj = TripleParser.formatObject(st);
+        long stepNo = steps.size() + 1;
+
+        if (base.contains(st)) {
+            steps.add(new ExplainResult(stepNo, depth, st.getSubject().toString(),
+                    st.getPredicate().toString(), obj, "asserted", null));
+            return;
+        }
+        if (depth > 25) { // derivation depth guard
+            steps.add(new ExplainResult(stepNo, depth, st.getSubject().toString(),
+                    st.getPredicate().toString(), obj, "derived", "…depth limit…"));
+            return;
+        }
+
+        // Find the (outermost) layer that derived this statement
+        for (int i = layers.size() - 1; i >= 0; i--) {
+            InfModel layer = layers.get(i);
+            Iterator<org.apache.jena.reasoner.Derivation> it = layer.getDerivation(st);
+            if (it != null && it.hasNext()) {
+                org.apache.jena.reasoner.Derivation d = it.next();
+                if (d instanceof org.apache.jena.reasoner.rulesys.RuleDerivation rd) {
+                    String ruleName = rd.getRule() != null ? rd.getRule().toShortString() : "(rule)";
+                    steps.add(new ExplainResult(stepNo, depth, st.getSubject().toString(),
+                            st.getPredicate().toString(), obj, "derived", ruleName));
+                    if (visited.add(st)) { // expand premises once; repeated statements aren't re-expanded
+                        for (org.apache.jena.graph.Triple match : rd.getMatches()) {
+                            if (match != null) {
+                                walkDerivation(layer.asStatement(match), depth + 1,
+                                        base, layers, steps, visited);
+                            }
+                        }
+                    }
+                } else {
+                    steps.add(new ExplainResult(stepNo, depth, st.getSubject().toString(),
+                            st.getPredicate().toString(), obj, "derived", d.toString()));
+                }
+                return;
+            }
+        }
+
+        // Present (contains == true) but no derivation record → reasoner axiom
+        steps.add(new ExplainResult(stepNo, depth, st.getSubject().toString(),
+                st.getPredicate().toString(), obj, "axiom", null));
+    }
+
     // ── To Turtle ───────────────────────────────────────────────
 
     public static TurtleExportResult toTurtle(String name) {

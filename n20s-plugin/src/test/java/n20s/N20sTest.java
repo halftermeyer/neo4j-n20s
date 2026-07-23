@@ -964,6 +964,36 @@ class N20sTest {
         }
     }
 
+    // ── explain ─────────────────────────────────────────────────
+
+    @Test
+    void testExplain_derivationTrace() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('explain_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:lasagna ex:contains ex:bechamel .
+                    ex:bechamel ex:contains ex:butter .
+                    ex:butter ex:hasAllergen ex:milk .
+                ') YIELD added RETURN added
+                """);
+
+            var steps = session.run("""
+                CALL n20s.graph.explain('explain_test',
+                    'http://ex.org/lasagna', 'http://ex.org/hasAllergen', 'http://ex.org/milk',
+                    '[prop: (?r http://ex.org/contains ?i) (?i http://ex.org/hasAllergen ?a) -> (?r http://ex.org/hasAllergen ?a)]')
+                YIELD step, depth, subject, predicate, object, kind, rule
+                RETURN step, depth, kind, rule
+                """).list();
+
+            assertEquals("derived", steps.get(0).get("kind").asString());
+            assertTrue(steps.get(0).get("rule").asString().contains("prop"));
+            long asserted = steps.stream()
+                    .filter(r -> r.get("kind").asString().equals("asserted")).count();
+            assertEquals(3, asserted);
+        }
+    }
+
     // ── validateWithRules ───────────────────────────────────────
 
     @Test

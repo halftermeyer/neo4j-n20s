@@ -355,6 +355,35 @@ class GraphRoutesTest {
         assertTrue(plain.body().contains("INFO"));
     }
 
+    // ── explain ─────────────────────────────────────────────────
+
+    @Test
+    void testExplain_derivationTrace() throws Exception {
+        post("/graph/expl/turtle", """
+                {"turtle": "@prefix ex: <http://ex.org/> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . ex:butter a ex:Dairy . ex:Dairy rdfs:subClassOf ex:AnimalProduct ."}
+                """);
+
+        var resp = post("/graph/expl/explain", """
+                {"s": "http://ex.org/butter",
+                 "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                 "o": "http://ex.org/AnimalProduct",
+                 "profile": "RDFS"}
+                """);
+        assertEquals(200, resp.statusCode());
+        assertTrue(resp.body().contains("\"kind\":\"derived\""));
+        assertTrue(resp.body().contains("\"kind\":\"asserted\""));
+    }
+
+    @Test
+    void testExplain_notEntailed() throws Exception {
+        post("/graph/expl2/turtle", "{\"turtle\": \"@prefix ex: <http://ex.org/> . ex:a ex:p ex:b .\"}");
+        var resp = post("/graph/expl2/explain", """
+                {"s": "http://ex.org/a", "p": "http://ex.org/q", "o": "http://ex.org/b", "profile": "RDFS"}
+                """);
+        assertEquals(400, resp.statusCode());
+        assertTrue(resp.body().contains("not asserted or entailed"));
+    }
+
     // ── projectTemplate ─────────────────────────────────────────
 
     @Test

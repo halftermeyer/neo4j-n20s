@@ -107,6 +107,20 @@ public class GraphProcedures {
         return GraphEngine.validateWithRules(name, rules, reasoningProfile).stream();
     }
 
+    // ── n20s.graph.explain() ───────────────────────────────────
+
+    @Procedure(name = "n20s.graph.explain", mode = Mode.READ)
+    @Description("Explain how a statement is entailed: returns the derivation tree (depth-first) as steps of kind 'derived' (with the rule), 'asserted', or 'axiom'. Optional profile runs first, optional rules layer on top. Never modifies the graph.")
+    public Stream<ExplainResult> explain(
+            @Name("name") String name,
+            @Name("s") String s,
+            @Name("p") String p,
+            @Name("o") String o,
+            @Name(value = "rules", defaultValue = "") String rules,
+            @Name(value = "reasoningProfile", defaultValue = "") String reasoningProfile) {
+        return GraphEngine.explain(name, s, p, o, rules, reasoningProfile).stream();
+    }
+
     // ── n20s.graph.addTurtle() ─────────────────────────────────
 
     @Procedure(name = "n20s.graph.addTurtle", mode = Mode.READ)

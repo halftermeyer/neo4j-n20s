@@ -68,6 +68,9 @@ public final class GraphRoutes {
 
         // Validate with ephemeral inference (profile and/or rules) — never modifies the graph
         app.post("/graph/{name}/validateWithRules", GraphRoutes::handleValidateWithRules);
+
+        // Explain a statement's derivation (ephemeral) — never modifies the graph
+        app.post("/graph/{name}/explain", GraphRoutes::handleExplain);
     }
 
     private static void handleAddTurtle(Context ctx) {
@@ -156,6 +159,14 @@ public final class GraphRoutes {
         ctx.json(GraphEngine.infer(name, body.profile));
     }
 
+    private static void handleExplain(Context ctx) {
+        String name = ctx.pathParam("name");
+        var body = ctx.bodyAsClass(ExplainRequest.class);
+        String rules = body.rules != null ? body.rules : "";
+        String profile = body.profile != null ? body.profile : "";
+        ctx.json(GraphEngine.explain(name, body.s, body.p, body.o, rules, profile));
+    }
+
     private static void handleValidateWithRules(Context ctx) {
         String name = ctx.pathParam("name");
         var body = ctx.bodyAsClass(ValidateWithRulesRequest.class);
@@ -216,6 +227,14 @@ public final class GraphRoutes {
     }
 
     public static class ValidateWithRulesRequest {
+        public String rules;
+        public String profile;
+    }
+
+    public static class ExplainRequest {
+        public String s;
+        public String p;
+        public String o;
         public String rules;
         public String profile;
     }

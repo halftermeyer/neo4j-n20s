@@ -149,7 +149,19 @@ def test_ai_chef_scenario(server):
     after = next(x["tripleCount"] for x in server.graph.list() if x["graphName"] == g)
     assert before == after  # ephemeral: nothing materialized
 
-    # 7. drop
+    # 7. explain — derivation trace for the propagated allergen, graph untouched
+    steps = server.graph.explain(
+        g,
+        "http://example.org/food#lasagna",
+        "http://example.org/food#hasAllergen",
+        "http://example.org/food#allergen_milk",
+        rules=PROPAGATION_RULE,
+    )
+    assert steps[0]["kind"] == "derived"
+    assert "allergenPropagation" in steps[0]["rule"]
+    assert any(s["kind"] == "asserted" for s in steps)
+
+    # 8. drop
     assert server.graph.drop(g)["status"] == "dropped"
 
 

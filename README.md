@@ -171,6 +171,7 @@ The full reference — every rule as row + template → triples, error catalog, 
 | `n20s.graph.inferWithRules(name, rules, [profile])` | Custom rule inference (forward chaining, materializes); optional profile underneath |
 | `n20s.graph.validate(name)` | SHACL validation — shapes are projected into the same graph as the data |
 | `n20s.graph.validateWithRules(name, [rules], [profile])` | SHACL validation over ephemeral inference (profile first, rules on top) — the graph is never modified |
+| `n20s.graph.explain(name, s, p, o, [rules], [profile])` | Derivation trace for an entailed statement: depth-first steps of kind `derived` (with the rule), `asserted`, or `axiom` — never modifies the graph |
 | `n20s.graph.toTurtle(name)` | Serialize a named graph as a Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples from a named graph |
 | `n20s.graph.list()` | List all in-memory graphs with triple counts |
@@ -201,6 +202,23 @@ CALL n20s.graph.query('scope', 'SELECT ...', 'RDFS');
 ```
 
 Rule of thumb: backward for one-shot checks — including SHACL via `validateWithRules()`, so a complete agent validation never mutates the projection. Forward when you'll run several queries on the same projection or want to export the entailed graph via `toTurtle()`.
+
+And when an answer needs justifying, ask for the derivation:
+
+```cypher
+CALL n20s.graph.explain('scope',
+  'http://ex.org/lasagna', 'http://ex.org/hasAllergen', 'http://ex.org/milk',
+  $rules, 'RDFS')
+YIELD step, depth, subject, predicate, object, kind, rule
+RETURN step, depth, subject, predicate, object, kind, rule;
+// step 1  depth 0  derived (rule: prop)   lasagna hasAllergen milk
+// step 2  depth 1  asserted               lasagna contains bechamel
+// step 3  depth 1  derived (rule: prop)   bechamel hasAllergen milk
+// step 4  depth 2  asserted               bechamel contains butter
+// step 5  depth 2  asserted               butter hasAllergen milk
+```
+
+The trace is computed by re-deriving the statement with derivation logging inside the ephemeral window — nothing is stored, and small scopes make it cheap.
 
 ### Custom Rules
 
@@ -336,6 +354,7 @@ curl -X POST localhost:7474/graph/check/query -H 'Content-Type: application/json
 | `n20s.graph.inferWithRules` | POST | `/graph/{name}/inferWithRules` |
 | `n20s.graph.validate` | POST | `/graph/{name}/validate` |
 | `n20s.graph.validateWithRules` | POST | `/graph/{name}/validateWithRules` (accepts `rules`, `profile`, both optional) |
+| `n20s.graph.explain` | POST | `/graph/{name}/explain` (accepts `s`, `p`, `o`, optional `rules`, `profile`) |
 | `n20s.graph.toTurtle` | GET | `/graph/{name}/turtle` |
 | `n20s.graph.triples` | GET | `/graph/{name}/triples` |
 | `n20s.graph.list` | GET | `/graph` |

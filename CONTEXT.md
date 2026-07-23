@@ -59,6 +59,7 @@ Choosing: self-contained per-entity knowledge → Turtle property. Fine-grained 
 | `n20s.graph.inferWithRules(name, rules, [profile])` | Forward chaining with custom rules (axiomatic triples filtered) |
 | `n20s.graph.validate(name)` | SHACL validation (shapes projected in the same graph) |
 | `n20s.graph.validateWithRules(name, [rules], [profile])` | SHACL validation over ephemeral inference — profile first, rules layered on top; never modifies the graph (like `queryWithRules`, unlike `infer*`) |
+| `n20s.graph.explain(name, s, p, o, [rules], [profile])` | Derivation trace for an entailed statement — depth-first steps `{step, depth, subject, predicate, object, kind, rule}` where kind ∈ `derived`\|`asserted`\|`axiom`. Lazy re-derivation inside the window; never modifies the graph. Errors if the statement is not entailed |
 | `n20s.graph.toTurtle(name)` | Serialize graph as Turtle string |
 | `n20s.graph.triples(name)` | Stream all triples |
 | `n20s.graph.list()` | List in-memory graphs |
@@ -232,6 +233,19 @@ Same template semantics as the plugin function (see API Quick Reference). This i
 // violations:
 [{"focusNode": "http://ex.org/Alice", "path": "http://ex.org/name", "severity": "Violation", "message": "…", "value": null, "sourceShape": "…"}]
 ```
+
+### `POST /graph/{name}/explain` — derivation trace
+
+```json
+{"s": "http://ex.org/lasagna", "p": "http://ex.org/hasAllergen", "o": "http://ex.org/milk",
+ "rules": "[prop: (?r ex:contains ?i) (?i ex:hasAllergen ?a) -> (?r ex:hasAllergen ?a)]",
+ "profile": "RDFS"}
+
+// → [{"step": 1, "depth": 0, "subject": "…lasagna", "predicate": "…hasAllergen",
+//     "object": "…milk", "kind": "derived", "rule": "prop"}, …premises at depth+1…]
+```
+
+Kind: `derived` (rule named), `asserted` (in the projection), `axiom` (reasoner-supplied). 400 if the statement is not entailed under the given rules/profile.
 
 ### `POST /graph/{name}/validateWithRules` — SHACL over ephemeral inference
 

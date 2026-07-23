@@ -213,6 +213,15 @@ class _GraphAPI:
             f"/graph/{name}/validateWithRules", {"rules": rules, "profile": profile}
         )
 
+    def explain(self, name: str, s: str, p: str, o: str,
+                rules: str = "", profile: str = "") -> list:
+        """Derivation trace for an entailed statement — depth-first steps of kind
+        'derived' (with the rule), 'asserted', or 'axiom'. Never modifies the graph."""
+        return self._c._post(
+            f"/graph/{name}/explain",
+            {"s": s, "p": p, "o": o, "rules": rules, "profile": profile},
+        )
+
     # — export & management —
 
     def toTurtle(self, name: str) -> dict:

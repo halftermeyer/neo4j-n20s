@@ -65,6 +65,96 @@ class GraphEngineTest {
                 GraphEngine.addTurtle("bad", "this is not valid turtle @#$%"));
     }
 
+    // ── explain (derivation trace) ──────────────────────────────
+
+    @Test
+    void testExplain_ruleRecursion() {
+        GraphEngine.addTurtle("exp", """
+                @prefix ex: <http://ex.org/> .
+                ex:lasagna ex:contains ex:bechamel .
+                ex:bechamel ex:contains ex:butter .
+                ex:butter ex:hasAllergen ex:milk .
+                """);
+        long before = GraphCatalog.tripleCount("exp");
+
+        var steps = GraphEngine.explain("exp",
+                "http://ex.org/lasagna", "http://ex.org/hasAllergen", "http://ex.org/milk",
+                "[prop: (?r http://ex.org/contains ?i) (?i http://ex.org/hasAllergen ?a) -> (?r http://ex.org/hasAllergen ?a)]",
+                null);
+
+        // root: derived by 'prop'
+        assertEquals("derived", steps.get(0).kind);
+        assertTrue(steps.get(0).rule.contains("prop"));
+        assertEquals(0, steps.get(0).depth);
+        // the chain unfolds: an intermediate derived premise, and asserted leaves
+        assertTrue(steps.stream().anyMatch(r -> r.kind.equals("derived") && r.depth == 1));
+        long asserted = steps.stream().filter(r -> r.kind.equals("asserted")).count();
+        assertEquals(3, asserted); // both contains edges + butter's allergen
+        // ephemeral: nothing written
+        assertEquals(before, GraphCatalog.tripleCount("exp"));
+    }
+
+    @Test
+    void testExplain_profileSubclass() {
+        GraphEngine.addTurtle("exp2", """
+                @prefix ex: <http://ex.org/> .
+                @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                ex:butter a ex:Dairy .
+                ex:Dairy rdfs:subClassOf ex:AnimalProduct .
+                """);
+
+        var steps = GraphEngine.explain("exp2",
+                "http://ex.org/butter", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                "http://ex.org/AnimalProduct", null, "RDFS");
+
+        assertEquals("derived", steps.get(0).kind);       // rdfs9-style rule
+        assertTrue(steps.stream().anyMatch(r -> r.kind.equals("asserted")
+                && r.object.contains("Dairy")));
+    }
+
+    @Test
+    void testExplain_crossLayer_ruleOverProfile() {
+        GraphEngine.addTurtle("exp3", """
+                @prefix ex: <http://ex.org/> .
+                @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+                ex:report ex:derivedDirect ex:raw .
+                ex:derivedDirect rdfs:subPropertyOf ex:derived .
+                ex:raw a ex:Sensitive .
+                """);
+
+        // rule speaks ex:derived; the fact is asserted as ex:derivedDirect —
+        // RDFS subPropertyOf lifts it, the rule fires on the lifted premise
+        var steps = GraphEngine.explain("exp3",
+                "http://ex.org/report", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                "http://ex.org/Sensitive",
+                "[flow: (?d http://ex.org/derived ?s) (?s rdf:type http://ex.org/Sensitive) -> (?d rdf:type http://ex.org/Sensitive)]",
+                "RDFS");
+
+        assertEquals("derived", steps.get(0).kind);
+        assertTrue(steps.get(0).rule.contains("flow"));
+        // the lifted premise is itself derived (by the RDFS layer), not asserted
+        assertTrue(steps.stream().anyMatch(r ->
+                r.predicate.equals("http://ex.org/derived") && !r.kind.equals("asserted")));
+    }
+
+    @Test
+    void testExplain_assertedStatement() {
+        GraphEngine.addTurtle("exp4", "@prefix ex: <http://ex.org/> . ex:a ex:p ex:b .");
+        var steps = GraphEngine.explain("exp4",
+                "http://ex.org/a", "http://ex.org/p", "http://ex.org/b", null, "RDFS");
+        assertEquals(1, steps.size());
+        assertEquals("asserted", steps.get(0).kind);
+    }
+
+    @Test
+    void testExplain_notEntailed_throws() {
+        GraphEngine.addTurtle("exp5", "@prefix ex: <http://ex.org/> . ex:a ex:p ex:b .");
+        var ex = assertThrows(RuntimeException.class, () ->
+                GraphEngine.explain("exp5",
+                        "http://ex.org/a", "http://ex.org/q", "http://ex.org/b", null, "RDFS"));
+        assertTrue(ex.getMessage().contains("not asserted or entailed"));
+    }
+
     // ── validateWithRules (ephemeral inference) ─────────────────
 
     @Test

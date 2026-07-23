@@ -70,6 +70,8 @@ Choosing: self-contained per-entity knowledge → Turtle property. Fine-grained 
 
 **ifExists** (`project`, `projectTemplate`, `addTurtle`): `'replace'` (drop + recreate), `'append'` (merge, create if needed), `'fail'` (error if exists).
 
+**Result shape (all write ops)**: `triplesBefore` / `triplesAfter` (graph totals) / `added` (their delta) — plus `emitted` for `project`/`projectTemplate` (raw emissions; can exceed `added` because RDF set semantics dedupe) and `rows` for `projectTemplate`. `tripleCount` is a deprecated alias (= `emitted` on project/projectTemplate, = `triplesAfter` on addTurtle — it used to mean different things per op, which is why it's deprecated).
+
 **projectTemplate** — the `row` argument is a node (labels exposed to the template as `{_labels}`, element id as `{_elementId}`), a relationship (`{_type}`, `{_start}`/`{_end}` node rows — self-contained, so `UNWIND rels AS hop` handles var-length patterns), a map (`{s: s, r: r, t: t}` — **preferred** for multi-entity rows; entity values converted recursively; positional `[s, r, t]` can silently reverse edges), or a path/entity list (positional `{_0}`, `{_1}`, `{_2}`). Template JSON: `{"subject": "…{id}…", "triples": [{"predicate": "…" | {"from": "_1._type", "map": {…}}, "object": "…{prop}…" | {"from": "_labels", "map": {…}}, "kind": "iri"|"literal", "datatype": "…", "include": […], "exclude": […]}]}`. Dotted placeholders (`{_start.id}`) reach into nested maps; a placeholder resolving *to* a map errors loudly. A list-valued top-level placeholder in the object fans out one triple per element (max one list per pattern, object position only; dotted access fans out list-of-maps). Missing property → pattern skipped; missing subject placeholder → row skipped (missing data skips quietly). Placeholder values in IRI positions are percent-encoded. `map` renames and filters in one table — values absent from the map are dropped (object: element skipped; predicate: pattern skipped). Conditional mapping belongs in Cypher: compute a map and pass it as the row. Worked examples for every rule: [TEMPLATES.md](TEMPLATES.md).
 
 **Chaining**: forward (`infer*` — materialize once, query many) vs backward (`query(..., profile)` / `queryWithRules` / `validateWithRules` — reason during the call, no materialization). Backward for one-shot checks — a full agent validation (project → validateWithRules → drop) never mutates the projection; forward for repeated queries or Turtle export of entailments.
@@ -166,7 +168,8 @@ JSON in, JSON out. `profile` optional (omit or `""` for no reasoning). Errors: `
 [{"s": "http://ex.org/Zeus", "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", "o": "http://ex.org/God"},
  {"s": "http://ex.org/Zeus", "p": "http://ex.org/name", "o": "\"Zeus\"@en"}]
 
-// → {"graphName": "g", "tripleCount": 2, "status": "projected"}
+// → {"graphName": "g", "emitted": 2, "triplesBefore": 0, "triplesAfter": 2, "added": 2, "status": "projected"}
+//   (tripleCount is a deprecated alias of emitted)
 ```
 
 Object encoding: URIs bare, blank nodes `_:id`, literals `"value"`, `"value"@lang`, `"value"^^<datatypeURI>`.
@@ -186,7 +189,7 @@ Object encoding: URIs bare, blank nodes `_:id`, literals `"value"`, `"value"@lan
    ]},
  "rows": [{"id": "id", "_labels": ["Thing"], "prop": ["p1", "p2", "p3"]}]}
 
-// → {"graphName": "g", "rows": 1, "tripleCount": 4, "status": "projected"}
+// → {"graphName": "g", "rows": 1, "emitted": 4, "triplesBefore": 0, "triplesAfter": 4, "added": 4, "status": "projected"}
 ```
 
 Same template semantics as the plugin function (see API Quick Reference). This is the endpoint a middleware calls after fetching nodes over Bolt: convert each node to `{…props, "_labels": […], "_elementId": "…"}` and POST.

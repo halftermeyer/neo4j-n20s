@@ -65,7 +65,8 @@ public class GraphAddTurtle {
         @UserAggregationResult
         public Map<String, Object> result() {
             if (model == null) {
-                return Map.of("graphName", "", "tripleCount", 0L, "added", 0L, "status", "empty");
+                return Map.of("graphName", "", "tripleCount", 0L,
+                        "triplesBefore", 0L, "triplesAfter", 0L, "added", 0L, "status", "empty");
             }
 
             if (!GraphCatalog.exists(graphName)) {
@@ -75,7 +76,9 @@ public class GraphAddTurtle {
             long triplesAfter = model.size();
             return Map.of(
                     "graphName", graphName,
-                    "tripleCount", triplesAfter,
+                    "tripleCount", triplesAfter,     // deprecated alias for 'triplesAfter'
+                    "triplesBefore", triplesBefore,
+                    "triplesAfter", triplesAfter,
                     "added", triplesAfter - triplesBefore,
                     "status", "projected"
             );

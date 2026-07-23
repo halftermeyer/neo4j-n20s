@@ -187,7 +187,7 @@ A `{from, map}` spec in **predicate position** turns relationship types into pre
 MATCH (tpl:Template {name: 'rel_mapping'})
 MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
 WITH n20s.graph.projectTemplate('g', tpl.template, {s: s, r: r, t: t}) AS g
-RETURN g.graphName, g.rows, g.tripleCount;
+RETURN g.graphName, g.rows, g.added, g.triplesAfter;
 ```
 
 **Template**
@@ -230,10 +230,10 @@ In `MATCH (a)-[rels:RELATES_TO*]->(b)`, `rels` is a **list of relationships**. S
 MATCH (:Thing {id: 'a'})-[rels:RELATES_TO*]->(:Thing)
 UNWIND rels AS hop
 WITH n20s.graph.projectTemplate('g', tpl.template, hop) AS g
-RETURN g.rows, g.tripleCount;
+RETURN g.rows, g.added;
 ```
 
-with subject `{_start.id}`, object `{_end.id}`. Overlapping paths re-emit shared hops; RDF has **set semantics**, so the model stores each triple once — `tripleCount` counts emissions, the graph dedupes.
+with subject `{_start.id}`, object `{_end.id}`. Overlapping paths re-emit shared hops; RDF has **set semantics**, so the model stores each triple once — `emitted` counts emissions, `added` counts actual growth, `triplesAfter` is the graph total.
 
 ### Positional shorthand: `[s, r, t]` and paths
 
@@ -284,7 +284,7 @@ Missing data skips quietly instead of erroring or emitting broken IRIs:
 <http://ex.org#n_1> ex:name "Retinol" .
 ```
 
-The result's `rows` field counts rows received, `tripleCount` counts triples emitted — a big gap between them is your signal that data is sparser than the template assumes.
+The result's `rows` field counts rows received, `emitted` counts triples emitted — a big gap between them is your signal that data is sparser than the template assumes. (`triplesBefore`/`triplesAfter`/`added` report graph totals, matching `addTurtle`.)
 
 ## Literals & datatypes
 

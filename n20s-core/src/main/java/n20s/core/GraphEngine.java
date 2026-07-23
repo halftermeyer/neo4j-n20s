@@ -93,10 +93,11 @@ public final class GraphEngine {
 
     public static ProjectResult projectTriples(String name, List<String[]> triples, String ifExists) {
         if (triples == null || triples.isEmpty()) {
-            return new ProjectResult(name, 0, "empty");
+            return new ProjectResult(name, 0, 0, 0, "empty");
         }
 
         Model model = resolveModelForWrite(name, ifExists);
+        long before = model.size();
         long count = 0;
 
         for (String[] spo : triples) {
@@ -114,7 +115,7 @@ public final class GraphEngine {
             GraphCatalog.put(name, model);
         }
 
-        return new ProjectResult(name, count, "projected");
+        return new ProjectResult(name, count, before, model.size(), "projected");
     }
 
     // ── Project Template ────────────────────────────────────────
@@ -127,10 +128,11 @@ public final class GraphEngine {
                                                  List<Map<String, Object>> rows, String ifExists) {
         TemplateEngine.Template tpl = TemplateEngine.parse(template);
         if (rows == null || rows.isEmpty()) {
-            return new TemplateResult(name, 0, 0, "empty");
+            return new TemplateResult(name, 0, 0, 0, 0, "empty");
         }
 
         Model model = resolveModelForWrite(name, ifExists);
+        long before = model.size();
         long triples = 0;
         for (Map<String, Object> row : rows) {
             triples += TemplateEngine.expandInto(model, tpl, row);
@@ -140,7 +142,7 @@ public final class GraphEngine {
             GraphCatalog.put(name, model);
         }
 
-        return new TemplateResult(name, rows.size(), triples, "projected");
+        return new TemplateResult(name, rows.size(), triples, before, model.size(), "projected");
     }
 
     // ── Query ───────────────────────────────────────────────────

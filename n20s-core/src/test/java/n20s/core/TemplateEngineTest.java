@@ -264,6 +264,37 @@ class TemplateEngineTest {
         assertEquals(2, result.tripleCount);
     }
 
+    // ── result reporting (append mode: totals, not just contribution) ──
+
+    @Test
+    void testAppendMode_reportsGraphTotals() {
+        GraphEngine.addTurtle("totals", """
+                @prefix ex: <http://ex.org/> .
+                ex:a ex:p ex:b . ex:c ex:p ex:d .
+                """);
+
+        var result = GraphEngine.projectTemplate("totals", THING_TEMPLATE,
+                List.of(Map.of("id", "x", "prop", List.of("p1", "p2", "p3"))), "append");
+
+        assertEquals(3, result.emitted);
+        assertEquals(3, result.tripleCount);   // deprecated alias of emitted
+        assertEquals(2, result.triplesBefore);
+        assertEquals(5, result.triplesAfter);  // the true graph total
+        assertEquals(3, result.added);
+    }
+
+    @Test
+    void testEmittedCanExceedAdded_setSemantics() {
+        // the same triple emitted twice is stored once
+        var result = GraphEngine.projectTemplate("dedup", THING_TEMPLATE, List.of(
+                Map.of("id", "x", "prop", List.of("p1")),
+                Map.of("id", "x", "prop", List.of("p1"))));
+
+        assertEquals(2, result.emitted);
+        assertEquals(1, result.added);
+        assertEquals(1, result.triplesAfter);
+    }
+
     // ── dotted placeholders ─────────────────────────────────────
 
     private static final String REL_TEMPLATE = """

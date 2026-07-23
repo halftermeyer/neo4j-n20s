@@ -1127,6 +1127,36 @@ class N20sTest {
     }
 
     @Test
+    void testProjectTemplate_appendReportsTotals() {
+        try (Session session = driver.session()) {
+            session.run("""
+                CALL n20s.graph.addTurtle('totals_test', '
+                    @prefix ex: <http://ex.org/> .
+                    ex:a ex:p ex:b . ex:c ex:p ex:d .
+                ')
+                """);
+
+            var result = session.run("""
+                UNWIND [{id: 'x', prop: ['p1', 'p2', 'p3']}] AS row
+                WITH n20s.graph.projectTemplate('totals_test', '{
+                  "subject": "http://ex.org#{id}",
+                  "triples": [
+                    { "predicate": "http://ex.org#has", "object": "http://ex.org#{prop}", "kind": "iri" }
+                  ]
+                }', row, 'append') AS g
+                RETURN g.emitted AS emitted, g.triplesBefore AS before,
+                       g.triplesAfter AS after, g.added AS added
+                """);
+
+            var record = result.single();
+            assertEquals(3, record.get("emitted").asLong());
+            assertEquals(2, record.get("before").asLong());
+            assertEquals(5, record.get("after").asLong());   // true graph total, addTurtle-style
+            assertEquals(3, record.get("added").asLong());
+        }
+    }
+
+    @Test
     void testProjectTemplate_mapRow() {
         try (Session session = driver.session()) {
             var result = session.run("""

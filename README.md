@@ -135,7 +135,7 @@ CREATE (:Template {name: 'thing_mapping', template: '{
 // One node (:Thing:Ingredient {id: 'x', prop: ['p1','p2','p3']}) → 2 rdf:type + 3 has_prop triples
 MATCH (t:Thing), (tpl:Template {name: 'thing_mapping'})
 WITH n20s.graph.projectTemplate('g', tpl.template, t) AS g
-RETURN g.graphName, g.rows, g.tripleCount;
+RETURN g.graphName, g.rows, g.added, g.triplesAfter;
 ```
 
 Semantics in brief:
@@ -151,7 +151,7 @@ Relationships project as triples the same way — prefer **named entity maps** (
 ```cypher
 MATCH (s:Thing)-[r:RELATES_TO]->(t:OtherThing)
 WITH n20s.graph.projectTemplate('g', tpl.template, {s: s, r: r, t: t}) AS g
-RETURN g.rows, g.tripleCount;
+RETURN g.rows, g.added;
 // template: subject "…{s.id}", predicate {"from": "r._type", "map": {…}}, object "…{t.id}"
 ```
 

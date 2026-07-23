@@ -30,6 +30,7 @@ public class GraphProject {
         private String ifExists;
         private Model model;
         private long count = 0;
+        private long triplesBefore = 0;
 
         @UserAggregationUpdate
         public void update(
@@ -47,6 +48,7 @@ public class GraphProject {
                 graphName = name;
                 this.ifExists = ifExists;
                 model = GraphEngine.resolveModelForWrite(name, ifExists);
+                triplesBefore = model.size();
             } else if (!graphName.equals(name)) {
                 throw new RuntimeException("Mixed graph names in project(): started with '"
                         + graphName + "' but received '" + name + "'. Use a single graph name per aggregation.");
@@ -67,16 +69,22 @@ public class GraphProject {
         @UserAggregationResult
         public Map<String, Object> result() {
             if (model == null) {
-                return Map.of("graphName", "", "tripleCount", 0L, "status", "empty");
+                return Map.of("graphName", "", "tripleCount", 0L, "emitted", 0L,
+                        "triplesBefore", 0L, "triplesAfter", 0L, "added", 0L, "status", "empty");
             }
 
             if (!GraphCatalog.exists(graphName)) {
                 GraphCatalog.put(graphName, model);
             }
 
+            long triplesAfter = model.size();
             return Map.of(
                     "graphName", graphName,
-                    "tripleCount", count,
+                    "tripleCount", count,            // deprecated alias for 'emitted'
+                    "emitted", count,
+                    "triplesBefore", triplesBefore,
+                    "triplesAfter", triplesAfter,    // graph total — matches addTurtle's convention
+                    "added", triplesAfter - triplesBefore,
                     "status", "projected"
             );
         }
